@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lebenszeit Tracker</title>
+    <style>
+      :root {
+        --primary: #3498db;
+        --secondary: #2ecc71;
+        --warning: #f1c40f;
+        --danger: #e74c3c;
+        --bg: #f4f7f6;
+      }
+      body {
+        font-family: -apple-system, sans-serif;
+        background: var(--bg);
+        padding: 15px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin: 0;
+      }
+      .card {
+        background: white;
+        border-radius: 15px;
+        padding: 20px;
+        width: 100%;
+        max-width: 400px;
+        margin-bottom: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        box-sizing: border-box;
+      }
+      input {
+        width: 100%;
+        padding: 12px;
+        margin-bottom: 10px;
+        border: 2px solid #eee;
+        border-radius: 8px;
+        font-size: 1rem;
+        box-sizing: border-box;
+      }
+      .timer {
+        font-size: 3rem;
+        text-align: center;
+        margin: 10px 0;
+        font-family: monospace;
+        font-weight: bold;
+        color: var(--primary);
+      }
+      .btn-group {
+        display: flex;
+        gap: 10px;
+      }
+      button {
+        flex: 1;
+        padding: 12px;
+        border: none;
+        border-radius: 8px;
+        color: white;
+        font-weight: bold;
+        cursor: pointer;
+        font-size: 1rem;
+      }
+      .btn-start {
+        background: var(--secondary);
+      }
+      .btn-pause {
+        background: var(--warning);
+      }
+      .btn-stop {
+        background: var(--danger);
+      }
+
+      .stats-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      .stat-item {
+        background: #f8f9fa;
+        padding: 10px;
+        border-radius: 8px;
+        text-align: center;
+        border: 1px solid #eee;
+      }
+      .stat-label {
+        font-size: 0.7rem;
+        color: #7f8c8d;
+        display: block;
+        text-transform: uppercase;
+      }
+      .stat-val {
+        font-weight: bold;
+        font-size: 1.1rem;
+        color: #2c3e50;
+      }
+
+      .history-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+      select {
+        padding: 5px;
+        border-radius: 5px;
+        border: 1px solid #ccc;
+      }
+      .history-list {
+        max-height: 250px;
+        overflow-y: auto;
+      }
+      .history-item {
+        padding: 10px;
+        border-bottom: 1px solid #f1f1f1;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .history-item:last-child {
+        border-bottom: none;
+      }
+      .task-info {
+        display: flex;
+        flex-direction: column;
+      }
+      .task-title {
+        font-weight: bold;
+        font-size: 0.9rem;
+      }
+      .task-date {
+        font-size: 0.7rem;
+        color: #bdc3c7;
+      }
+      .task-dur {
+        font-weight: bold;
+        color: var(--primary);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <input
+        type="text"
+        id="taskInput"
+        placeholder="Was arbeitest du gerade?"
+        onchange="checkTaskChange()"
+      />
+      <div class="timer" id="timerDisplay">00:00:00</div>
+      <div class="btn-group" id="controls"></div>
+    </div>
+
+    <div class="card">
+      <div class="stats-grid">
+        <div class="stat-item">
+          <span class="stat-label">Heute</span
+          ><span class="stat-val" id="statDay">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Woche</span
+          ><span class="stat-val" id="statWeek">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Monat</span
+          ><span class="stat-val" id="statMonth">0</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="history-header">
+        <strong>Verlauf</strong>
+        <select id="historyFilter" onchange="renderHistory()">
+          <option value="0">Nur Heute</option>
+          <option value="3" selected>Letzte 3 Tage</option>
+          <option value="7">Letzte 7 Tage</option>
+        </select>
+      </div>
+      <div id="historyList" class="history-list"></div>
+    </div>
+
+    <script>
+      let history = JSON.parse(localStorage.getItem("wt_history")) || [];
+      let activeTask = JSON.parse(localStorage.getItem("wt_active")) || null;
+      let archive = JSON.parse(localStorage.getItem("wt_archive")) || {
+        days: {},
+        weeks: {},
+        months: {},
+      };
+      let timerInterval;
+
+      function getTimeKeys(dateStr) {
+        const d = new Date(dateStr);
+        const day = d.toISOString().split("T")[0];
+        const month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
+          2,
+          "0"
+        )}`;
+
+        // KW Berechnung
+        const t = new Date(d.getTime());
+        t.setHours(0, 0, 0, 0);
+        t.setDate(t.getDate() + 3 - ((t.getDay() + 6) % 7));
+        const w1 = new Date(t.getFullYear(), 0, 4);
+        const week = `${t.getFullYear()}-W${String(
+          1 +
+            Math.round(
+              ((t.getTime() - w1.getTime()) / 86400000 -
+                3 +
+                ((w1.getDay() + 6) % 7)) /
+                7
+            )
+        ).padStart(2, "0")}`;
+
+        return { day, week, month };
+      }
+
+      function updateUI() {
+        const ctrl = document.getElementById("controls");
+        if (!activeTask) {
+          ctrl.innerHTML = `<button class="btn-start" onclick="startTask()">Arbeit starten</button>`;
+          document.getElementById("timerDisplay").innerText = "00:00:00";
+        } else {
+          const pLab = activeTask.isPaused ? "Weiter" : "Pause";
+          ctrl.innerHTML = `<button class="btn-pause" onclick="togglePause()">${pLab}</button>
+                                  <button class="btn-stop" onclick="stopTask()">Stopp</button>`;
+          document.getElementById("taskInput").value = activeTask.title;
+        }
+        renderStats();
+        renderHistory();
+      }
+
+      function startTask() {
+        const title = document.getElementById("taskInput").value || "Aufgabe";
+        activeTask = {
+          title,
+          startTime: Date.now(),
+          accumulatedTime: 0,
+          isPaused: false,
+          date: new Date().toISOString(),
+        };
+        save();
+        runTimer();
+        updateUI();
+      }
+
+      function togglePause() {
+        if (activeTask.isPaused) {
+          activeTask.startTime = Date.now();
+          activeTask.isPaused = false;
+        } else {
+          activeTask.accumulatedTime += Date.now() - activeTask.startTime;
+          activeTask.isPaused = true;
+        }
+        save();
+        updateUI();
+      }
+
+      function stopTask() {
+        if (!activeTask) return;
+
+        // 1. Endgültige Zeit berechnen (auch wenn gerade Pause war)
+        let finalMs = activeTask.accumulatedTime;
+        if (!activeTask.isPaused) {
+          finalMs += Date.now() - activeTask.startTime;
+        }
+        let mins = Math.round(finalMs / 60000);
+
+        if (mins > 0) {
+          // mins
+          const keys = getTimeKeys(activeTask.date);
+
+          // 2. Im Archiv für Langzeit-Statistik speichern
+          archive.days[keys.day] = (archive.days[keys.day] || 0) + mins;
+          archive.weeks[keys.week] = (archive.weeks[keys.week] || 0) + mins;
+          archive.months[keys.month] = (archive.months[keys.month] || 0) + mins;
+
+          // 3. In die History für die 7-Tage-Anzeige pushen
+          history.push({
+            title: activeTask.title,
+            duration: mins,
+            date: activeTask.date,
+          });
+
+          // 4. History aufräumen (alles älter als 7 Tage entfernen)
+          const limit = new Date();
+          limit.setDate(limit.getDate() - 7);
+          history = history.filter((item) => new Date(item.date) >= limit);
+        }
+
+        // Task zurücksetzen und alles permanent im Handy speichern
+        activeTask = null;
+        clearInterval(timerInterval);
+        save(); // Schreibt wt_active, wt_history und wt_archive in den localStorage
+        updateUI();
+      }
+
+      function checkTaskChange() {
+        if (
+          activeTask &&
+          document.getElementById("taskInput").value !== activeTask.title
+        ) {
+          stopTask();
+          startTask();
+        }
+      }
+
+      function deleteEntry(indexInFiltered) {
+        const filterValue = parseInt(
+          document.getElementById("historyFilter").value
+        );
+        const now = new Date();
+        const todayStr = now.toDateString();
+
+        // Die exakt gleiche Filter-Logik wie in renderHistory
+        const filtered = history
+          .filter((item) => {
+            const itemDate = new Date(item.date);
+            if (filterValue === 0) return itemDate.toDateString() === todayStr;
+            const diffDays = Math.ceil(
+              Math.abs(now - itemDate) / (1000 * 60 * 60 * 24)
+            );
+            return diffDays <= filterValue;
+          })
+          .slice()
+          .reverse();
+
+        const itemToDelete = filtered[indexInFiltered];
+
+        // Sicherheitscheck: Nur heute löschen
+        if (new Date(itemToDelete.date).toDateString() !== todayStr) {
+          alert(
+            "Sicherheitshalber können nur Einträge von heute gelöscht werden."
+          );
+          return;
+        }
+
+        if (confirm(`Eintrag "${itemToDelete.title}" löschen?`)) {
+          // Archiv-Korrektur
+          const keys = getTimeKeys(itemToDelete.date);
+          if (archive.days[keys.day])
+            archive.days[keys.day] -= itemToDelete.duration;
+          if (archive.weeks[keys.week])
+            archive.weeks[keys.week] -= itemToDelete.duration;
+          if (archive.months[keys.month])
+            archive.months[keys.month] -= itemToDelete.duration;
+
+          // Aus dem Original-Array entfernen
+          history = history.filter((i) => i !== itemToDelete);
+
+          save();
+          updateUI();
+        }
+      }
+
+      function renderStats() {
+        const k = getTimeKeys(new Date());
+        document.getElementById("statDay").innerText = archive.days[k.day] || 0;
+        document.getElementById("statWeek").innerText =
+          archive.weeks[k.week] || 0;
+        document.getElementById("statMonth").innerText =
+          archive.months[k.month] || 0;
+      }
+
+      function renderHistory() {
+        const filterValue = parseInt(
+          document.getElementById("historyFilter").value
+        );
+        const list = document.getElementById("historyList");
+        const now = new Date();
+        const todayStr = now.toDateString(); // Zum Abgleich, was "heute" ist
+
+        // 1. Filtern der Daten basierend auf dem Dropdown
+        const filtered = history.filter((item) => {
+          const itemDate = new Date(item.date);
+
+          // Option "Nur Heute"
+          if (filterValue === 0) {
+            return itemDate.toDateString() === todayStr;
+          }
+
+          // Option "X Tage" (Differenz in Millisekunden umrechnen in Tage)
+          const diffTime = Math.abs(now - itemDate);
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          return diffDays <= filterValue;
+        });
+
+        // 2. Umdrehen der Liste (Neueste oben) und Generieren des HTML
+        list.innerHTML =
+          filtered
+            .slice()
+            .reverse()
+            .map((item, index) => {
+              const itemDate = new Date(item.date);
+              const isToday = itemDate.toDateString() === todayStr;
+
+              return `
+            <div class="history-item" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee;">
+                <div class="task-info" style="display: flex; flex-direction: column;">
+                    <span class="task-title" style="font-weight: bold; font-size: 0.9rem;">${
+                      item.title
+                    }</span>
+                    <span class="task-date" style="font-size: 0.7rem; color: #888;">
+                        ${itemDate.toLocaleDateString("de-DE", {
+                          weekday: "short",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })} Uhr
+                    </span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span class="task-dur" style="font-weight: bold; color: #3498db;">${
+                      item.duration
+                    } Min</span>
+                    
+                    ${
+                      isToday
+                        ? `
+                        <button onclick="deleteEntry(${index})" 
+                                style="background: none; border: none; color: #e74c3c; font-size: 1.4rem; cursor: pointer; padding: 0 5px; line-height: 1;">
+                            &times;
+                        </button>
+                    `
+                        : '<div style="width: 25px;"></div>'
+                    } 
+                </div>
+            </div>
+        `;
+            })
+            .join("") ||
+          '<div style="text-align:center; padding:20px; color:#ccc;">Keine Einträge für diesen Zeitraum</div>';
+      }
+
+      function runTimer() {
+        clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+          if (!activeTask || activeTask.isPaused) return;
+          const ms =
+            activeTask.accumulatedTime + (Date.now() - activeTask.startTime);
+          const h = Math.floor(ms / 3600000);
+          const m = Math.floor((ms % 3600000) / 60000);
+          const s = Math.floor((ms % 60000) / 1000);
+          document.getElementById("timerDisplay").innerText = `${String(
+            h
+          ).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(
+            s
+          ).padStart(2, "0")}`;
+        }, 1000);
+      }
+
+      function save() {
+        localStorage.setItem("wt_active", JSON.stringify(activeTask));
+        localStorage.setItem("wt_history", JSON.stringify(history));
+        localStorage.setItem("wt_archive", JSON.stringify(archive));
+      }
+
+      if (activeTask && !activeTask.isPaused) runTimer();
+      updateUI();
+    </script>
+  </body>
+</html>

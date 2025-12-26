@@ -16,7 +16,8 @@
         --bg: #f4f7f6;
       }
       body {
-        font-family: -apple-system, system-ui, sans-serif;
+        font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI",
+          Roboto, Helvetica, Arial, sans-serif;
         background: var(--bg);
         padding: 15px;
         display: flex;
@@ -65,7 +66,7 @@
         font-weight: bold;
         cursor: pointer;
         font-size: 1rem;
-        touch-action: manipulation;
+        touch-action: manipulation; /* Optimiert für Mobilgeräte */
       }
       .btn-start {
         background: var(--secondary);
@@ -118,7 +119,6 @@
         border-radius: 10px;
         padding: 15px;
         margin-top: 15px;
-        position: relative;
       }
       .manual-header {
         display: flex;
@@ -183,7 +183,6 @@
         type="text"
         id="taskInput"
         placeholder="Was investierst du gerade?"
-        onchange="checkTaskChange()"
       />
       <div class="timer" id="timerDisplay">00:00:00</div>
       <div class="btn-group" id="controls"></div>
@@ -206,11 +205,7 @@
         <div class="stat-item">
           <span class="stat-label"
             >Jahr
-            <select
-              id="yearSelect"
-              class="year-select"
-              onchange="renderStats()"
-            ></select
+            <select id="yearSelect" class="year-select"></select
           ></span>
           <span class="stat-val" id="statYear">0 min</span>
         </div>
@@ -229,6 +224,7 @@
         <div style="display: flex; align-items: center; gap: 10px">
           <strong>Verlauf</strong>
           <button
+            id="addManualBtn"
             style="
               background: var(--primary);
               border-radius: 50%;
@@ -236,16 +232,11 @@
               height: 28px;
               padding: 0;
             "
-            onclick="toggleManualForm()"
           >
             +
           </button>
         </div>
-        <select
-          id="historyFilter"
-          onchange="renderHistory()"
-          style="padding: 5px; border-radius: 5px"
-        >
+        <select id="historyFilter" style="padding: 5px; border-radius: 5px">
           <option value="0">Heute</option>
           <option value="3" selected>3 Tage</option>
           <option value="7">7 Tage</option>
@@ -257,9 +248,7 @@
           <span style="font-size: 0.75rem; font-weight: bold; color: #7f8c8d"
             >MANUELL HINZUFÜGEN</span
           >
-          <button class="btn-close-x" onclick="toggleManualForm()">
-            &times;
-          </button>
+          <button id="closeManualBtn" class="btn-close-x">&times;</button>
         </div>
         <input type="text" id="manualTitle" placeholder="Titel" />
         <input
@@ -268,8 +257,8 @@
           placeholder="Minuten"
           inputmode="numeric"
         />
-        <button class="btn-save-manual" onclick="saveManualTask()">
-          Speichern
+        <button id="saveManualBtn" class="btn-save-manual">
+          Eintrag speichern
         </button>
       </div>
 
@@ -334,22 +323,6 @@
         localStorage.setItem("wt_archive", JSON.stringify(archive));
       }
 
-      function updateUI() {
-        const ctrl = document.getElementById("controls");
-        if (!activeTask) {
-          ctrl.innerHTML = `<button class="btn-start" onclick="startTask()">Starten</button>`;
-          document.getElementById("timerDisplay").innerText = "00:00:00";
-        } else {
-          ctrl.innerHTML = `<button class="btn-pause" onclick="togglePause()">${
-            activeTask.isPaused ? "Weiter" : "Pause"
-          }</button>
-                            <button class="btn-stop" onclick="stopTask()">Stopp</button>`;
-          document.getElementById("taskInput").value = activeTask.title;
-        }
-        renderStats();
-        renderHistory();
-      }
-
       function toggleManualForm() {
         const f = document.getElementById("manualForm");
         f.style.display = f.style.display === "block" ? "none" : "block";
@@ -361,13 +334,20 @@
       }
 
       function saveManualTask() {
+        // Fokus entfernen schließt die Tastatur auf Samsung/Android und erlaubt das Event
+        document.getElementById("manualTitle").blur();
+        document.getElementById("manualMins").blur();
+
         const t = document.getElementById("manualTitle").value || "Aufgabe";
         const m = parseInt(document.getElementById("manualMins").value);
+
         if (m > 0) {
           addToArchive(t, m, new Date().toISOString());
           save();
           toggleManualForm();
           updateUI();
+        } else {
+          alert("Bitte Minuten eingeben");
         }
       }
 
@@ -379,8 +359,27 @@
         archive.years[k.year] = (archive.years[k.year] || 0) + mins;
         history.push({ title, duration: mins, date: dateIso });
         const limit = new Date();
-        limit.setDate(limit.getDate() - 7);
+        limit.setDate(limit.getDate() - 30); // Verlauf auf 30 Tage erhöht
         history = history.filter((i) => new Date(i.date) >= limit);
+      }
+
+      function updateUI() {
+        const ctrl = document.getElementById("controls");
+        if (!activeTask) {
+          ctrl.innerHTML = `<button class="btn-start" id="startBtn">Starten</button>`;
+          document.getElementById("startBtn").onclick = startTask;
+          document.getElementById("timerDisplay").innerText = "00:00:00";
+        } else {
+          ctrl.innerHTML = `<button class="btn-pause" id="pauseBtn">${
+            activeTask.isPaused ? "Weiter" : "Pause"
+          }</button>
+                            <button class="btn-stop" id="stopBtn">Stopp</button>`;
+          document.getElementById("pauseBtn").onclick = togglePause;
+          document.getElementById("stopBtn").onclick = stopTask;
+          document.getElementById("taskInput").value = activeTask.title;
+        }
+        renderStats();
+        renderHistory();
       }
 
       function startTask() {
@@ -538,15 +537,30 @@
         }, 1000);
       }
 
-      function checkTaskChange() {
-        if (
-          activeTask &&
-          document.getElementById("taskInput").value !== activeTask.title
-        ) {
-          stopTask();
-          startTask();
-        }
-      }
+      // Samsung Fix: Event-Listener statt HTML-Attribute
+      document
+        .getElementById("saveManualBtn")
+        .addEventListener("click", saveManualTask);
+      document
+        .getElementById("addManualBtn")
+        .addEventListener("click", toggleManualForm);
+      document
+        .getElementById("closeManualBtn")
+        .addEventListener("click", toggleManualForm);
+      document
+        .getElementById("yearSelect")
+        .addEventListener("change", renderStats);
+      document
+        .getElementById("historyFilter")
+        .addEventListener("change", renderHistory);
+      document
+        .getElementById("taskInput")
+        .addEventListener("change", function () {
+          if (activeTask && this.value !== activeTask.title) {
+            stopTask();
+            startTask();
+          }
+        });
 
       if (activeTask && !activeTask.isPaused) runTimer();
       updateUI();

@@ -238,8 +238,8 @@
           </button>
         </div>
         <select id="historyFilter" style="padding: 5px; border-radius: 5px">
-          <option value="0">Heute</option>
-          <option value="3" selected>3 Tage</option>
+          <option value="0" selected>Heute</option>
+          <option value="3">3 Tage</option>
           <option value="7">7 Tage</option>
         </select>
       </div>
@@ -570,7 +570,7 @@
       if (activeTask && !activeTask.isPaused) runTimer();
       updateUI(); // Rendert alles beim Start
 
-      const VERSION = "16.35"; // Version leicht erhöht
+      const VERSION = "26.12.16.35"; // Version leicht erhöht
 
       document.getElementById("copyrightYear").innerText =
         new Date().getFullYear();

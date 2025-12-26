@@ -268,7 +268,7 @@
 
     <footer>
       &copy; <span id="copyrightYear"></span> Oliver Ahlig · Lebenszeit Tracker
-      - 16.15
+      - 16.19
     </footer>
 
     <script>
@@ -492,38 +492,56 @@
       function renderHistory() {
         const fVal = parseInt(document.getElementById("historyFilter").value);
         const now = new Date();
+        now.setHours(0, 0, 0, 0); // Zeit auf Mitternacht setzen für sauberen Tagesvergleich
+
         const filtered = history
           .filter((i) => {
             const d = new Date(i.date);
-            if (fVal === 0) return d.toDateString() === now.toDateString();
-            return Math.ceil(Math.abs(now - d) / 86400000) <= fVal;
+            const itemDate = new Date(d.getTime());
+            itemDate.setHours(0, 0, 0, 0);
+
+            // Berechnung der Differenz in vollen Tagen
+            const diffTime = now - itemDate;
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+            if (fVal === 0)
+              return d.toDateString() === new Date().toDateString();
+            return diffDays < fVal;
           })
-          .slice()
-          .reverse();
+          .reverse(); // Neueste zuerst
 
         const list = document.getElementById("historyList");
-        list.innerHTML =
-          filtered
-            .map(
-              (item, idx) => `
-          <div class="history-item">
-            <div><span class="task-title">${item.title}</span><br>
+
+        if (filtered.length === 0) {
+          list.innerHTML =
+            '<div style="text-align:center; padding:20px; color:#ccc;">Keine Einträge für diesen Zeitraum</div>';
+          return;
+        }
+
+        list.innerHTML = filtered
+          .map((item, idx) => {
+            const isToday =
+              new Date(item.date).toDateString() === new Date().toDateString();
+            return `
+        <div class="history-item">
+          <div>
+            <span class="task-title">${item.title}</span><br>
             <span class="task-date">${new Date(item.date).toLocaleTimeString(
               "de-DE",
               { hour: "2-digit", minute: "2-digit" }
-            )} Uhr</span></div>
-            <div style="display:flex; align-items:center; gap:10px;">
-              <span class="task-dur">${formatTime(item.duration)}</span>
-              ${
-                new Date(item.date).toDateString() === now.toDateString()
-                  ? `<button class="btn-del" onclick="deleteEntry(${idx})">&times;</button>`
-                  : '<div style="width:25px;"></div>'
-              }
-            </div>
-          </div>`
-            )
-            .join("") ||
-          '<div style="text-align:center; padding:20px; color:#ccc;">Keine Einträge</div>';
+            )} Uhr</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span class="task-dur">${formatTime(item.duration)}</span>
+            ${
+              isToday
+                ? `<button class="btn-del" onclick="deleteEntry(${idx})">&times;</button>`
+                : '<div style="width:25px;"></div>'
+            }
+          </div>
+        </div>`;
+          })
+          .join("");
       }
 
       function runTimer() {

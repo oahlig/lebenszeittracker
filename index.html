@@ -135,7 +135,7 @@
       .btn-save-manual {
         background: var(--primary);
         width: 100%;
-        min-height: 48px; /* Bessere Trefferfläche für Mobile */
+        min-height: 48px;
       }
 
       .history-list {
@@ -238,8 +238,8 @@
           </button>
         </div>
         <select id="historyFilter" style="padding: 5px; border-radius: 5px">
-          <option value="0" selected>Heute</option>
-          <option value="3">3 Tage</option>
+          <option value="0">Heute</option>
+          <option value="3" selected>3 Tage</option>
           <option value="7">7 Tage</option>
         </select>
       </div>
@@ -272,13 +272,6 @@
     </footer>
 
     <script>
-      // Zentrales Versions-Management
-      const VERSION = "16.30";
-
-      document.getElementById("copyrightYear").innerText =
-        new Date().getFullYear();
-      document.getElementById("appVersion").innerText = VERSION;
-
       let history = JSON.parse(localStorage.getItem("wt_history")) || [];
       let activeTask = JSON.parse(localStorage.getItem("wt_active")) || null;
       let archive = JSON.parse(localStorage.getItem("wt_archive")) || {
@@ -344,7 +337,6 @@
       function saveManualTask() {
         const titleEl = document.getElementById("manualTitle");
         const minsEl = document.getElementById("manualMins");
-
         const t = titleEl.value.trim() || "Aufgabe";
         const m = parseInt(minsEl.value, 10);
 
@@ -352,7 +344,7 @@
           addToArchive(t, m, new Date().toISOString());
           save();
           toggleManualForm();
-          updateUI();
+          updateUI(); // Rendert auch History neu
           titleEl.blur();
           minsEl.blur();
         } else {
@@ -390,7 +382,7 @@
           document.getElementById("taskInput").value = activeTask.title;
         }
         renderStats();
-        renderHistory();
+        renderHistory(); // WICHTIG: History Refresh
       }
 
       function startTask() {
@@ -432,18 +424,9 @@
       }
 
       function deleteEntry(idx) {
-        const fVal = parseInt(document.getElementById("historyFilter").value);
+        const item = history[idx];
         const now = new Date();
-        const filtered = history
-          .filter((i) => {
-            const d = new Date(i.date);
-            if (fVal === 0) return d.toDateString() === now.toDateString();
-            return Math.ceil(Math.abs(now - d) / 86400000) <= fVal;
-          })
-          .slice()
-          .reverse();
 
-        const item = filtered[idx];
         if (new Date(item.date).toDateString() !== now.toDateString())
           return alert("Nur heutige Einträge löschbar.");
 
@@ -453,7 +436,7 @@
           archive.weeks[k.week] -= item.duration;
           archive.months[k.month] -= item.duration;
           archive.years[k.year] -= item.duration;
-          history = history.filter((i) => i !== item);
+          history.splice(idx, 1);
           save();
           updateUI();
         }
@@ -495,47 +478,50 @@
       function renderHistory() {
         const fVal = parseInt(document.getElementById("historyFilter").value);
         const now = new Date();
-        const filtered = history.filter((item) => {
-          const d = new Date(item.date);
-          if (fVal === 0) return d.toDateString() === now.toDateString();
-          const diffDays = Math.ceil(Math.abs(now - d) / 86400000);
-          return diffDays <= fVal;
-        });
-
         const list = document.getElementById("historyList");
-        if (filtered.length === 0) {
+
+        const filteredIndices = history
+          .map((item, index) => ({ item, index }))
+          .filter((obj) => {
+            const d = new Date(obj.item.date);
+            if (fVal === 0) return d.toDateString() === now.toDateString();
+            const diffDays = Math.ceil(Math.abs(now - d) / 86400000);
+            return diffDays <= fVal;
+          })
+          .reverse();
+
+        if (filteredIndices.length === 0) {
           list.innerHTML =
             '<div style="text-align:center; padding:20px; color:#ccc;">Keine Einträge vorhanden</div>';
           return;
         }
 
-        const htmlRows = filtered
-          .slice()
-          .reverse()
-          .map((item) => {
+        list.innerHTML = filteredIndices
+          .map((obj) => {
             const isToday =
-              new Date(item.date).toDateString() === now.toDateString();
-            const originalIdx = history.indexOf(item);
+              new Date(obj.item.date).toDateString() === now.toDateString();
             return `
-      <div class="history-item">
-        <div>
-          <span class="task-title">${item.title}</span><br>
-          <span class="task-date">${new Date(item.date).toLocaleTimeString(
-            "de-DE",
-            { hour: "2-digit", minute: "2-digit" }
-          )} Uhr</span>
-        </div>
-        <div style="display:flex; align-items:center; gap:10px;">
-          <span class="task-dur">${formatTime(item.duration)}</span>
-          ${
-            isToday
-              ? `<button class="btn-del" onclick="deleteEntry(${originalIdx})">&times;</button>`
-              : '<div style="width:25px;"></div>'
-          }
-        </div>
-      </div>`;
-          });
-        list.innerHTML = htmlRows.join("");
+            <div class="history-item">
+              <div>
+                <span class="task-title">${obj.item.title}</span><br>
+                <span class="task-date">${new Date(
+                  obj.item.date
+                ).toLocaleTimeString("de-DE", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })} Uhr</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px;">
+                <span class="task-dur">${formatTime(obj.item.duration)}</span>
+                ${
+                  isToday
+                    ? `<button class="btn-del" onclick="deleteEntry(${obj.index})">&times;</button>`
+                    : '<div style="width:25px;"></div>'
+                }
+              </div>
+            </div>`;
+          })
+          .join("");
       }
 
       function runTimer() {
@@ -555,16 +541,10 @@
         }, 1000);
       }
 
-      // FIX FÜR MOBILE SPEICHERN:
-      // Wir nutzen nur "click". Moderne mobile Browser emulieren das "click"
-      // nach einem Tap bereits korrekt. Das doppelte Zuweisen von touchstart
-      // und click verursacht oft Konflikte.
+      // Event Listeners
       document
         .getElementById("saveManualBtn")
-        .addEventListener("click", function (e) {
-          saveManualTask();
-        });
-
+        .addEventListener("click", saveManualTask);
       document
         .getElementById("addManualBtn")
         .addEventListener("click", toggleManualForm);
@@ -577,7 +557,6 @@
       document
         .getElementById("historyFilter")
         .addEventListener("change", renderHistory);
-
       document
         .getElementById("taskInput")
         .addEventListener("change", function () {
@@ -587,8 +566,15 @@
           }
         });
 
+      // Initialer Start
       if (activeTask && !activeTask.isPaused) runTimer();
-      updateUI();
+      updateUI(); // Rendert alles beim Start
+
+      const VERSION = "16.35"; // Version leicht erhöht
+
+      document.getElementById("copyrightYear").innerText =
+        new Date().getFullYear();
+      document.getElementById("appVersion").innerText = VERSION;
     </script>
   </body>
 </html>

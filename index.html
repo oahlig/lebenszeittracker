@@ -65,6 +65,7 @@
         font-weight: bold;
         cursor: pointer;
         font-size: 1rem;
+        touch-action: manipulation;
       }
       .btn-start {
         background: var(--secondary);
@@ -87,8 +88,6 @@
         border-radius: 8px;
         text-align: center;
         border: 1px solid #eee;
-        display: flex;
-        flex-direction: column;
       }
       .stat-label {
         font-size: 0.7rem;
@@ -102,7 +101,6 @@
         font-size: 1.1rem;
         color: #2c3e50;
       }
-
       .year-select {
         border: none;
         background: #ececec;
@@ -110,7 +108,6 @@
         color: #555;
         border-radius: 4px;
         padding: 2px 4px;
-        cursor: pointer;
         font-weight: bold;
       }
 
@@ -129,60 +126,27 @@
         align-items: center;
         margin-bottom: 10px;
       }
-      .manual-header span {
-        font-size: 0.85rem;
-        font-weight: bold;
-        color: #7f8c8d;
-      }
       .btn-close-x {
         background: none;
-        border: none;
         color: #bdc3c7;
         font-size: 1.5rem;
-        cursor: pointer;
-        line-height: 1;
-        padding: 0;
         width: auto;
       }
       .btn-save-manual {
         background: var(--primary);
         width: 100%;
-        margin-top: 5px;
       }
 
-      .history-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 10px;
-      }
-      .btn-add-manual {
-        background: var(--primary);
-        color: white;
-        border-radius: 50%;
-        width: 28px;
-        height: 28px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.2rem;
-        cursor: pointer;
-        border: none;
-      }
       .history-list {
         max-height: 250px;
         overflow-y: auto;
       }
       .history-item {
-        padding: 10px;
+        padding: 10px 0;
         border-bottom: 1px solid #f1f1f1;
         display: flex;
         justify-content: space-between;
         align-items: center;
-      }
-      .task-info {
-        display: flex;
-        flex-direction: column;
       }
       .task-title {
         font-weight: bold;
@@ -195,6 +159,13 @@
       .task-dur {
         font-weight: bold;
         color: var(--primary);
+      }
+      .btn-del {
+        background: none;
+        color: #e74c3c;
+        font-size: 1.4rem;
+        width: auto;
+        padding: 0 5px;
       }
 
       footer {
@@ -222,15 +193,15 @@
       <div class="stats-grid">
         <div class="stat-item">
           <span class="stat-label">Heute</span
-          ><span class="stat-val" id="statDay">0</span>
+          ><span class="stat-val" id="statDay">0 min</span>
         </div>
         <div class="stat-item">
           <span class="stat-label">Woche</span
-          ><span class="stat-val" id="statWeek">0</span>
+          ><span class="stat-val" id="statWeek">0 min</span>
         </div>
         <div class="stat-item">
           <span class="stat-label">Monat</span
-          ><span class="stat-val" id="statMonth">0</span>
+          ><span class="stat-val" id="statMonth">0 min</span>
         </div>
         <div class="stat-item">
           <span class="stat-label"
@@ -241,45 +212,64 @@
               onchange="renderStats()"
             ></select
           ></span>
-          <span class="stat-val" id="statYear">0</span>
+          <span class="stat-val" id="statYear">0 min</span>
         </div>
       </div>
     </div>
 
     <div class="card">
-      <div class="history-header">
+      <div
+        style="
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 10px;
+        "
+      >
         <div style="display: flex; align-items: center; gap: 10px">
           <strong>Verlauf</strong>
-          <button class="btn-add-manual" onclick="toggleManualForm()">+</button>
+          <button
+            style="
+              background: var(--primary);
+              border-radius: 50%;
+              width: 28px;
+              height: 28px;
+              padding: 0;
+            "
+            onclick="toggleManualForm()"
+          >
+            +
+          </button>
         </div>
         <select
           id="historyFilter"
           onchange="renderHistory()"
-          style="padding: 5px; border-radius: 5px; border: 1px solid #ccc"
+          style="padding: 5px; border-radius: 5px"
         >
-          <option value="0">Nur Heute</option>
-          <option value="3" selected>Letzte 3 Tage</option>
-          <option value="7">Letzte 7 Tage</option>
+          <option value="0">Heute</option>
+          <option value="3" selected>3 Tage</option>
+          <option value="7">7 Tage</option>
         </select>
       </div>
 
       <div id="manualForm">
         <div class="manual-header">
-          <span>MANUELL HINZUFÜGEN</span>
+          <span style="font-size: 0.75rem; font-weight: bold; color: #7f8c8d"
+            >MANUELL HINZUFÜGEN</span
+          >
           <button class="btn-close-x" onclick="toggleManualForm()">
             &times;
           </button>
         </div>
-        <input type="text" id="manualTitle" placeholder="Titel der Aufgabe" />
+        <input type="text" id="manualTitle" placeholder="Titel" />
         <input
           type="number"
           id="manualMins"
-          placeholder="Minuten (z.B. 30)"
-          pattern="\d*"
+          placeholder="Minuten"
           inputmode="numeric"
         />
         <button class="btn-save-manual" onclick="saveManualTask()">
-          Eintrag speichern
+          Speichern
         </button>
       </div>
 
@@ -304,26 +294,14 @@
       };
       let timerInterval;
 
-      // Zeitformatierung auf Deutsch: min -> Std -> Tg Std
       function formatTime(mins) {
-        if (!mins || mins === 0) return "0 min";
-
-        // Unter 90 Minuten -> min
+        if (!mins || mins <= 0) return "0 min";
         if (mins < 90) return mins + " min";
-
-        // Ab 90 Minuten bis unter 24 Stunden -> Std (mit 1 Dezimalstelle)
-        if (mins < 1440) {
-          const hours = (mins / 60).toFixed(1);
-          return hours.replace(".0", "") + " Std";
-        }
-
-        // Ab 24 Stunden -> Tage und Stunden
-        const days = Math.floor(mins / 1440);
-        const remainingMins = mins % 1440;
-        const hours = Math.floor(remainingMins / 60);
-
-        if (hours === 0) return `${days} Tg`;
-        return `${days} Tg ${hours} Std`;
+        if (mins < 1440)
+          return (mins / 60).toFixed(1).replace(".0", "") + " Std";
+        const d = Math.floor(mins / 1440);
+        const h = Math.floor((mins % 1440) / 60);
+        return h === 0 ? `${d} Tg` : `${d} Tg ${h} Std`;
       }
 
       function getTimeKeys(dateStr) {
@@ -350,14 +328,21 @@
         return { day, week, month, year };
       }
 
+      function save() {
+        localStorage.setItem("wt_active", JSON.stringify(activeTask));
+        localStorage.setItem("wt_history", JSON.stringify(history));
+        localStorage.setItem("wt_archive", JSON.stringify(archive));
+      }
+
       function updateUI() {
         const ctrl = document.getElementById("controls");
         if (!activeTask) {
           ctrl.innerHTML = `<button class="btn-start" onclick="startTask()">Starten</button>`;
           document.getElementById("timerDisplay").innerText = "00:00:00";
         } else {
-          const pLab = activeTask.isPaused ? "Weiter" : "Pause";
-          ctrl.innerHTML = `<button class="btn-pause" onclick="togglePause()">${pLab}</button>
+          ctrl.innerHTML = `<button class="btn-pause" onclick="togglePause()">${
+            activeTask.isPaused ? "Weiter" : "Pause"
+          }</button>
                             <button class="btn-stop" onclick="stopTask()">Stopp</button>`;
           document.getElementById("taskInput").value = activeTask.title;
         }
@@ -366,23 +351,20 @@
       }
 
       function toggleManualForm() {
-        const form = document.getElementById("manualForm");
-        const isOpening = form.style.display !== "block";
-        form.style.display = isOpening ? "block" : "none";
-        if (isOpening) {
+        const f = document.getElementById("manualForm");
+        f.style.display = f.style.display === "block" ? "none" : "block";
+        if (f.style.display === "block") {
           document.getElementById("manualTitle").value =
             document.getElementById("taskInput").value;
           document.getElementById("manualMins").value = "";
-          document.getElementById("manualTitle").focus();
         }
       }
 
       function saveManualTask() {
-        const title =
-          document.getElementById("manualTitle").value || "Manuelle Aufgabe";
-        const mins = parseInt(document.getElementById("manualMins").value);
-        if (!isNaN(mins) && mins > 0) {
-          addToArchive(title, mins, new Date().toISOString());
+        const t = document.getElementById("manualTitle").value || "Aufgabe";
+        const m = parseInt(document.getElementById("manualMins").value);
+        if (m > 0) {
+          addToArchive(t, m, new Date().toISOString());
           save();
           toggleManualForm();
           updateUI();
@@ -390,15 +372,15 @@
       }
 
       function addToArchive(title, mins, dateIso) {
-        const keys = getTimeKeys(dateIso);
-        archive.days[keys.day] = (archive.days[keys.day] || 0) + mins;
-        archive.weeks[keys.week] = (archive.weeks[keys.week] || 0) + mins;
-        archive.months[keys.month] = (archive.months[keys.month] || 0) + mins;
-        archive.years[keys.year] = (archive.years[keys.year] || 0) + mins;
+        const k = getTimeKeys(dateIso);
+        archive.days[k.day] = (archive.days[k.day] || 0) + mins;
+        archive.weeks[k.week] = (archive.weeks[k.week] || 0) + mins;
+        archive.months[k.month] = (archive.months[k.month] || 0) + mins;
+        archive.years[k.year] = (archive.years[k.year] || 0) + mins;
         history.push({ title, duration: mins, date: dateIso });
         const limit = new Date();
         limit.setDate(limit.getDate() - 7);
-        history = history.filter((item) => new Date(item.date) >= limit);
+        history = history.filter((i) => new Date(i.date) >= limit);
       }
 
       function startTask() {
@@ -428,9 +410,10 @@
 
       function stopTask() {
         if (!activeTask) return;
-        let finalMs = activeTask.accumulatedTime;
-        if (!activeTask.isPaused) finalMs += Date.now() - activeTask.startTime;
-        let mins = Math.round(finalMs / 60000);
+        let ms =
+          activeTask.accumulatedTime +
+          (activeTask.isPaused ? 0 : Date.now() - activeTask.startTime);
+        let mins = Math.round(ms / 60000);
         if (mins > 0) addToArchive(activeTask.title, mins, activeTask.date);
         activeTask = null;
         clearInterval(timerInterval);
@@ -438,42 +421,29 @@
         updateUI();
       }
 
-      function checkTaskChange() {
-        if (
-          activeTask &&
-          document.getElementById("taskInput").value !== activeTask.title
-        ) {
-          stopTask();
-          startTask();
-        }
-      }
-
-      function deleteEntry(indexInFiltered) {
-        const filterValue = parseInt(
-          document.getElementById("historyFilter").value
-        );
+      function deleteEntry(idx) {
+        const fVal = parseInt(document.getElementById("historyFilter").value);
         const now = new Date();
-        const todayStr = now.toDateString();
         const filtered = history
-          .filter((item) => {
-            const itemDate = new Date(item.date);
-            if (filterValue === 0) return itemDate.toDateString() === todayStr;
-            return (
-              Math.ceil(Math.abs(now - itemDate) / 86400000) <= filterValue
-            );
+          .filter((i) => {
+            const d = new Date(i.date);
+            if (fVal === 0) return d.toDateString() === now.toDateString();
+            return Math.ceil(Math.abs(now - d) / 86400000) <= fVal;
           })
           .slice()
           .reverse();
-        const itemToDelete = filtered[indexInFiltered];
-        if (new Date(itemToDelete.date).toDateString() !== todayStr)
-          return alert("Nur heute löschbar.");
-        if (confirm(`"${itemToDelete.title}" löschen?`)) {
-          const k = getTimeKeys(itemToDelete.date);
-          archive.days[k.day] -= itemToDelete.duration;
-          archive.weeks[k.week] -= itemToDelete.duration;
-          archive.months[k.month] -= itemToDelete.duration;
-          archive.years[k.year] -= itemToDelete.duration;
-          history = history.filter((i) => i !== itemToDelete);
+
+        const item = filtered[idx];
+        if (new Date(item.date).toDateString() !== now.toDateString())
+          return alert("Nur heutige Einträge löschbar.");
+
+        if (confirm(`"${item.title}" löschen?`)) {
+          const k = getTimeKeys(item.date);
+          archive.days[k.day] -= item.duration;
+          archive.weeks[k.week] -= item.duration;
+          archive.months[k.month] -= item.duration;
+          archive.years[k.year] -= item.duration;
+          history = history.filter((i) => i !== item);
           save();
           updateUI();
         }
@@ -481,24 +451,22 @@
 
       function renderStats() {
         const k = getTimeKeys(new Date());
-        const yearSelect = document.getElementById("yearSelect");
-        const currentYear = new Date().getFullYear().toString();
-        let years = Object.keys(archive.years || {});
-        if (!years.includes(currentYear)) years.push(currentYear);
-        years.sort((a, b) => b - a);
-        if (yearSelect.options.length !== years.length) {
-          const sel = yearSelect.value || currentYear;
-          yearSelect.innerHTML = years
+        const ys = document.getElementById("yearSelect");
+        const curY = new Date().getFullYear().toString();
+        let yrs = Object.keys(archive.years || {});
+        if (!yrs.includes(curY)) yrs.push(curY);
+        yrs.sort((a, b) => b - a);
+        if (ys.options.length !== yrs.length) {
+          const old = ys.value || curY;
+          ys.innerHTML = yrs
             .map(
               (y) =>
                 `<option value="${y}" ${
-                  y === sel ? "selected" : ""
+                  y === old ? "selected" : ""
                 }>${y}</option>`
             )
             .join("");
         }
-        const sYear = yearSelect.value || currentYear;
-
         document.getElementById("statDay").innerText = formatTime(
           archive.days[k.day]
         );
@@ -509,41 +477,44 @@
           archive.months[k.month]
         );
         document.getElementById("statYear").innerText = formatTime(
-          archive.years[sYear]
+          archive.years[ys.value || curY]
         );
       }
 
       function renderHistory() {
-        const filter = parseInt(document.getElementById("historyFilter").value);
+        const fVal = parseInt(document.getElementById("historyFilter").value);
         const now = new Date();
-        const filtered = history.filter((item) => {
-          const d = new Date(item.date);
-          if (filter === 0) return d.toDateString() === now.toDateString();
-          return Math.ceil(Math.abs(now - d) / 86400000) <= filter;
-        });
-        document.getElementById("historyList").innerHTML =
+        const filtered = history
+          .filter((i) => {
+            const d = new Date(i.date);
+            if (fVal === 0) return d.toDateString() === now.toDateString();
+            return Math.ceil(Math.abs(now - d) / 86400000) <= fVal;
+          })
+          .slice()
+          .reverse();
+
+        const list = document.getElementById("historyList");
+        list.innerHTML =
           filtered
-            .slice()
-            .reverse()
             .map(
-              (item, index) => `
+              (item, idx) => `
           <div class="history-item">
-            <div class="task-info"><span class="task-title">${
+            <div><span class="task-title">${
               item.title
-            }</span><span class="task-date">${new Date(
+            }</span><br><span class="task-date">${new Date(
                 item.date
               ).toLocaleTimeString("de-DE", {
                 hour: "2-digit",
                 minute: "2-digit",
               })} Uhr</span></div>
-            <div style="display:flex; align-items:center; gap:12px;"><span class="task-dur">${formatTime(
-              item.duration
-            )}</span>
-            ${
-              new Date(item.date).toDateString() === now.toDateString()
-                ? `<button onclick="deleteEntry(${index})" style="background:none; border:none; color:#e74c3c; font-size:1.4rem;">&times;</button>`
-                : '<div style="width:25px;"></div>'
-            }</div>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span class="task-dur">${formatTime(item.duration)}</span>
+              ${
+                new Date(item.date).toDateString() === now.toDateString()
+                  ? `<button class="btn-del" onclick="deleteEntry(${idx})">&times;</button>`
+                  : '<div style="width:25px;"></div>'
+              }
+            </div>
           </div>`
             )
             .join("") ||
@@ -567,10 +538,14 @@
         }, 1000);
       }
 
-      function save() {
-        localStorage.setItem("wt_active", JSON.stringify(activeTask));
-        localStorage.setItem("wt_history", JSON.stringify(history));
-        localStorage.setItem("wt_archive", JSON.stringify(archive));
+      function checkTaskChange() {
+        if (
+          activeTask &&
+          document.getElementById("taskInput").value !== activeTask.title
+        ) {
+          stopTask();
+          startTask();
+        }
       }
 
       if (activeTask && !activeTask.isPaused) runTimer();

@@ -20,6 +20,7 @@
         flex-direction: column;
         align-items: center;
         margin: 0;
+        min-height: 100vh; /* Sorgt dafür, dass das Impressum unten bleiben kann */
       }
       .card {
         background: white;
@@ -74,7 +75,7 @@
 
       .stats-grid {
         display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
+        grid-template-columns: 1fr 1fr;
         gap: 8px;
         margin-top: 10px;
       }
@@ -84,17 +85,32 @@
         border-radius: 8px;
         text-align: center;
         border: 1px solid #eee;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
       }
       .stat-label {
         font-size: 0.7rem;
         color: #7f8c8d;
         display: block;
         text-transform: uppercase;
+        margin-bottom: 4px;
       }
       .stat-val {
         font-weight: bold;
         font-size: 1.1rem;
         color: #2c3e50;
+      }
+
+      .year-select {
+        border: none;
+        background: #ececec;
+        font-size: 0.65rem;
+        color: #555;
+        border-radius: 4px;
+        padding: 2px 4px;
+        cursor: pointer;
+        font-weight: bold;
       }
 
       .history-header {
@@ -103,11 +119,26 @@
         align-items: center;
         margin-bottom: 10px;
       }
-      select {
-        padding: 5px;
-        border-radius: 5px;
-        border: 1px solid #ccc;
+      .header-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
       }
+      .btn-add-manual {
+        background: var(--primary);
+        color: white;
+        border-radius: 50%;
+        width: 25px;
+        height: 25px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        cursor: pointer;
+        border: none;
+        line-height: 1;
+      }
+
       .history-list {
         max-height: 250px;
         overflow-y: auto;
@@ -138,6 +169,15 @@
         font-weight: bold;
         color: var(--primary);
       }
+
+      /* Impressum Style */
+      footer {
+        margin-top: auto;
+        padding: 20px;
+        text-align: center;
+        font-size: 0.75rem;
+        color: #95a5a6;
+      }
     </style>
   </head>
   <body>
@@ -145,7 +185,7 @@
       <input
         type="text"
         id="taskInput"
-        placeholder="Was arbeitest du gerade?"
+        placeholder="Was investierst du gerade?"
         onchange="checkTaskChange()"
       />
       <div class="timer" id="timerDisplay">00:00:00</div>
@@ -166,13 +206,37 @@
           <span class="stat-label">Monat</span
           ><span class="stat-val" id="statMonth">0</span>
         </div>
+        <div class="stat-item">
+          <span class="stat-label">
+            Jahr
+            <select
+              id="yearSelect"
+              class="year-select"
+              onchange="renderStats()"
+            ></select>
+          </span>
+          <span class="stat-val" id="statYear">0</span>
+        </div>
       </div>
     </div>
 
     <div class="card">
       <div class="history-header">
-        <strong>Verlauf</strong>
-        <select id="historyFilter" onchange="renderHistory()">
+        <div class="header-left">
+          <strong>Verlauf</strong>
+          <button
+            class="btn-add-manual"
+            onclick="addManualTask()"
+            title="Manuell hinzufügen"
+          >
+            +
+          </button>
+        </div>
+        <select
+          id="historyFilter"
+          onchange="renderHistory()"
+          style="padding: 5px; border-radius: 5px; border: 1px solid #ccc"
+        >
           <option value="0">Nur Heute</option>
           <option value="3" selected>Letzte 3 Tage</option>
           <option value="7">Letzte 7 Tage</option>
@@ -181,13 +245,21 @@
       <div id="historyList" class="history-list"></div>
     </div>
 
+    <footer>
+      &copy; <span id="copyrightYear"></span> Oliver Ahlig · Lebenszeit Tracker
+    </footer>
+
     <script>
+      document.getElementById("copyrightYear").innerText =
+        new Date().getFullYear();
+
       let history = JSON.parse(localStorage.getItem("wt_history")) || [];
       let activeTask = JSON.parse(localStorage.getItem("wt_active")) || null;
       let archive = JSON.parse(localStorage.getItem("wt_archive")) || {
         days: {},
         weeks: {},
         months: {},
+        years: {},
       };
       let timerInterval;
 
@@ -198,8 +270,7 @@
           2,
           "0"
         )}`;
-
-        // KW Berechnung
+        const year = `${d.getFullYear()}`;
         const t = new Date(d.getTime());
         t.setHours(0, 0, 0, 0);
         t.setDate(t.getDate() + 3 - ((t.getDay() + 6) % 7));
@@ -213,19 +284,18 @@
                 7
             )
         ).padStart(2, "0")}`;
-
-        return { day, week, month };
+        return { day, week, month, year };
       }
 
       function updateUI() {
         const ctrl = document.getElementById("controls");
         if (!activeTask) {
-          ctrl.innerHTML = `<button class="btn-start" onclick="startTask()">Arbeit starten</button>`;
+          ctrl.innerHTML = `<button class="btn-start" onclick="startTask()">Starten</button>`;
           document.getElementById("timerDisplay").innerText = "00:00:00";
         } else {
           const pLab = activeTask.isPaused ? "Weiter" : "Pause";
           ctrl.innerHTML = `<button class="btn-pause" onclick="togglePause()">${pLab}</button>
-                                  <button class="btn-stop" onclick="stopTask()">Stopp</button>`;
+                            <button class="btn-stop" onclick="stopTask()">Stopp</button>`;
           document.getElementById("taskInput").value = activeTask.title;
         }
         renderStats();
@@ -258,42 +328,43 @@
         updateUI();
       }
 
+      function addManualTask() {
+        const title = prompt(
+          "Was hast du erledigt?",
+          document.getElementById("taskInput").value || "Manuelle Aufgabe"
+        );
+        if (!title) return;
+        const minsInput = prompt("Wie viele Minuten?", "15");
+        const mins = parseInt(minsInput);
+        if (!isNaN(mins) && mins > 0) {
+          const now = new Date().toISOString();
+          addToArchive(title, mins, now);
+          save();
+          updateUI();
+        }
+      }
+
+      function addToArchive(title, mins, dateIso) {
+        const keys = getTimeKeys(dateIso);
+        archive.days[keys.day] = (archive.days[keys.day] || 0) + mins;
+        archive.weeks[keys.week] = (archive.weeks[keys.week] || 0) + mins;
+        archive.months[keys.month] = (archive.months[keys.month] || 0) + mins;
+        archive.years[keys.year] = (archive.years[keys.year] || 0) + mins;
+        history.push({ title, duration: mins, date: dateIso });
+        const limit = new Date();
+        limit.setDate(limit.getDate() - 7);
+        history = history.filter((item) => new Date(item.date) >= limit);
+      }
+
       function stopTask() {
         if (!activeTask) return;
-
-        // 1. Endgültige Zeit berechnen (auch wenn gerade Pause war)
         let finalMs = activeTask.accumulatedTime;
-        if (!activeTask.isPaused) {
-          finalMs += Date.now() - activeTask.startTime;
-        }
+        if (!activeTask.isPaused) finalMs += Date.now() - activeTask.startTime;
         let mins = Math.round(finalMs / 60000);
-
-        if (mins > 0) {
-          // mins
-          const keys = getTimeKeys(activeTask.date);
-
-          // 2. Im Archiv für Langzeit-Statistik speichern
-          archive.days[keys.day] = (archive.days[keys.day] || 0) + mins;
-          archive.weeks[keys.week] = (archive.weeks[keys.week] || 0) + mins;
-          archive.months[keys.month] = (archive.months[keys.month] || 0) + mins;
-
-          // 3. In die History für die 7-Tage-Anzeige pushen
-          history.push({
-            title: activeTask.title,
-            duration: mins,
-            date: activeTask.date,
-          });
-
-          // 4. History aufräumen (alles älter als 7 Tage entfernen)
-          const limit = new Date();
-          limit.setDate(limit.getDate() - 7);
-          history = history.filter((item) => new Date(item.date) >= limit);
-        }
-
-        // Task zurücksetzen und alles permanent im Handy speichern
+        if (mins > 0) addToArchive(activeTask.title, mins, activeTask.date);
         activeTask = null;
         clearInterval(timerInterval);
-        save(); // Schreibt wt_active, wt_history und wt_archive in den localStorage
+        save();
         updateUI();
       }
 
@@ -313,8 +384,6 @@
         );
         const now = new Date();
         const todayStr = now.toDateString();
-
-        // Die exakt gleiche Filter-Logik wie in renderHistory
         const filtered = history
           .filter((item) => {
             const itemDate = new Date(item.date);
@@ -326,19 +395,12 @@
           })
           .slice()
           .reverse();
-
         const itemToDelete = filtered[indexInFiltered];
-
-        // Sicherheitscheck: Nur heute löschen
         if (new Date(itemToDelete.date).toDateString() !== todayStr) {
-          alert(
-            "Sicherheitshalber können nur Einträge von heute gelöscht werden."
-          );
+          alert("Nur heutige Einträge löschbar.");
           return;
         }
-
-        if (confirm(`Eintrag "${itemToDelete.title}" löschen?`)) {
-          // Archiv-Korrektur
+        if (confirm(`"${itemToDelete.title}" löschen?`)) {
           const keys = getTimeKeys(itemToDelete.date);
           if (archive.days[keys.day])
             archive.days[keys.day] -= itemToDelete.duration;
@@ -346,10 +408,9 @@
             archive.weeks[keys.week] -= itemToDelete.duration;
           if (archive.months[keys.month])
             archive.months[keys.month] -= itemToDelete.duration;
-
-          // Aus dem Original-Array entfernen
+          if (archive.years[keys.year])
+            archive.years[keys.year] -= itemToDelete.duration;
           history = history.filter((i) => i !== itemToDelete);
-
           save();
           updateUI();
         }
@@ -357,11 +418,32 @@
 
       function renderStats() {
         const k = getTimeKeys(new Date());
-        document.getElementById("statDay").innerText = archive.days[k.day] || 0;
+        const yearSelect = document.getElementById("yearSelect");
+        const currentYear = new Date().getFullYear().toString();
+        let availableYears = Object.keys(archive.years);
+        if (!availableYears.includes(currentYear))
+          availableYears.push(currentYear);
+        availableYears.sort((a, b) => b - a);
+        if (yearSelect.options.length !== availableYears.length) {
+          const currentSelection = yearSelect.value || currentYear;
+          yearSelect.innerHTML = availableYears
+            .map(
+              (y) =>
+                `<option value="${y}" ${
+                  y === currentSelection ? "selected" : ""
+                }>${y}</option>`
+            )
+            .join("");
+        }
+        const selectedYear = yearSelect.value || currentYear;
+        document.getElementById("statDay").innerText =
+          (archive.days[k.day] || 0) + "m";
         document.getElementById("statWeek").innerText =
-          archive.weeks[k.week] || 0;
+          (archive.weeks[k.week] || 0) + "m";
         document.getElementById("statMonth").innerText =
-          archive.months[k.month] || 0;
+          (archive.months[k.month] || 0) + "m";
+        document.getElementById("statYear").innerText =
+          (archive.years[selectedYear] || 0) + "m";
       }
 
       function renderHistory() {
@@ -370,24 +452,15 @@
         );
         const list = document.getElementById("historyList");
         const now = new Date();
-        const todayStr = now.toDateString(); // Zum Abgleich, was "heute" ist
-
-        // 1. Filtern der Daten basierend auf dem Dropdown
+        const todayStr = now.toDateString();
         const filtered = history.filter((item) => {
           const itemDate = new Date(item.date);
-
-          // Option "Nur Heute"
-          if (filterValue === 0) {
-            return itemDate.toDateString() === todayStr;
-          }
-
-          // Option "X Tage" (Differenz in Millisekunden umrechnen in Tage)
-          const diffTime = Math.abs(now - itemDate);
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          if (filterValue === 0) return itemDate.toDateString() === todayStr;
+          const diffDays = Math.ceil(
+            Math.abs(now - itemDate) / (1000 * 60 * 60 * 24)
+          );
           return diffDays <= filterValue;
         });
-
-        // 2. Umdrehen der Liste (Neueste oben) und Generieren des HTML
         list.innerHTML =
           filtered
             .slice()
@@ -395,42 +468,27 @@
             .map((item, index) => {
               const itemDate = new Date(item.date);
               const isToday = itemDate.toDateString() === todayStr;
-
               return `
-            <div class="history-item" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee;">
-                <div class="task-info" style="display: flex; flex-direction: column;">
-                    <span class="task-title" style="font-weight: bold; font-size: 0.9rem;">${
-                      item.title
-                    }</span>
-                    <span class="task-date" style="font-size: 0.7rem; color: #888;">
-                        ${itemDate.toLocaleDateString("de-DE", {
-                          weekday: "short",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })} Uhr
-                    </span>
-                </div>
-                <div style="display: flex; align-items: center; gap: 12px;">
-                    <span class="task-dur" style="font-weight: bold; color: #3498db;">${
-                      item.duration
-                    } Min</span>
-                    
-                    ${
-                      isToday
-                        ? `
-                        <button onclick="deleteEntry(${index})" 
-                                style="background: none; border: none; color: #e74c3c; font-size: 1.4rem; cursor: pointer; padding: 0 5px; line-height: 1;">
-                            &times;
-                        </button>
-                    `
-                        : '<div style="width: 25px;"></div>'
-                    } 
-                </div>
-            </div>
-        `;
+                <div class="history-item">
+                    <div class="task-info">
+                        <span class="task-title">${item.title}</span>
+                        <span class="task-date">${itemDate.toLocaleTimeString(
+                          "de-DE",
+                          { hour: "2-digit", minute: "2-digit" }
+                        )} Uhr</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span class="task-dur">${item.duration}m</span>
+                        ${
+                          isToday
+                            ? `<button onclick="deleteEntry(${index})" style="background: none; border: none; color: #e74c3c; font-size: 1.4rem; cursor: pointer;">&times;</button>`
+                            : '<div style="width: 25px;"></div>'
+                        } 
+                    </div>
+                </div>`;
             })
             .join("") ||
-          '<div style="text-align:center; padding:20px; color:#ccc;">Keine Einträge für diesen Zeitraum</div>';
+          '<div style="text-align:center; padding:20px; color:#ccc;">Keine Einträge</div>';
       }
 
       function runTimer() {
@@ -439,9 +497,9 @@
           if (!activeTask || activeTask.isPaused) return;
           const ms =
             activeTask.accumulatedTime + (Date.now() - activeTask.startTime);
-          const h = Math.floor(ms / 3600000);
-          const m = Math.floor((ms % 3600000) / 60000);
-          const s = Math.floor((ms % 60000) / 1000);
+          const h = Math.floor(ms / 3600000),
+            m = Math.floor((ms % 3600000) / 60000),
+            s = Math.floor((ms % 60000) / 1000);
           document.getElementById("timerDisplay").innerText = `${String(
             h
           ).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(

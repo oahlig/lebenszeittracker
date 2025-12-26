@@ -66,7 +66,7 @@
         font-weight: bold;
         cursor: pointer;
         font-size: 1rem;
-        touch-action: manipulation; /* Optimiert für Mobilgeräte */
+        touch-action: manipulation;
       }
       .btn-start {
         background: var(--secondary);
@@ -135,6 +135,7 @@
       .btn-save-manual {
         background: var(--primary);
         width: 100%;
+        min-height: 48px; /* Bessere Trefferfläche für Mobile */
       }
 
       .history-list {
@@ -191,16 +192,16 @@
     <div class="card">
       <div class="stats-grid">
         <div class="stat-item">
-          <span class="stat-label">Heute</span
-          ><span class="stat-val" id="statDay">0 min</span>
+          <span class="stat-label">Heute</span>
+          <span class="stat-val" id="statDay">0 min</span>
         </div>
         <div class="stat-item">
-          <span class="stat-label">Woche</span
-          ><span class="stat-val" id="statWeek">0 min</span>
+          <span class="stat-label">Woche</span>
+          <span class="stat-val" id="statWeek">0 min</span>
         </div>
         <div class="stat-item">
-          <span class="stat-label">Monat</span
-          ><span class="stat-val" id="statMonth">0 min</span>
+          <span class="stat-label">Monat</span>
+          <span class="stat-val" id="statMonth">0 min</span>
         </div>
         <div class="stat-item">
           <span class="stat-label"
@@ -228,8 +229,8 @@
             style="
               background: var(--primary);
               border-radius: 50%;
-              width: 28px;
-              height: 28px;
+              width: 32px;
+              height: 32px;
               padding: 0;
             "
           >
@@ -301,6 +302,7 @@
           "0"
         )}`;
         const year = `${d.getFullYear()}`;
+
         const t = new Date(d.getTime());
         t.setHours(0, 0, 0, 0);
         t.setDate(t.getDate() + 3 - ((t.getDay() + 6) % 7));
@@ -314,6 +316,7 @@
                 7
             )
         ).padStart(2, "0")}`;
+
         return { day, week, month, year };
       }
 
@@ -334,18 +337,20 @@
       }
 
       function saveManualTask() {
-        // Fokus entfernen schließt die Tastatur auf Samsung/Android und erlaubt das Event
-        document.getElementById("manualTitle").blur();
-        document.getElementById("manualMins").blur();
+        const titleEl = document.getElementById("manualTitle");
+        const minsEl = document.getElementById("manualMins");
 
-        const t = document.getElementById("manualTitle").value || "Aufgabe";
-        const m = parseInt(document.getElementById("manualMins").value);
+        const t = titleEl.value.trim() || "Aufgabe";
+        const m = parseInt(minsEl.value, 10);
 
-        if (m > 0) {
+        if (!isNaN(m) && m > 0) {
           addToArchive(t, m, new Date().toISOString());
           save();
           toggleManualForm();
           updateUI();
+          // Fokus entfernen schließt Tastatur
+          titleEl.blur();
+          minsEl.blur();
         } else {
           alert("Bitte Minuten eingeben");
         }
@@ -357,9 +362,10 @@
         archive.weeks[k.week] = (archive.weeks[k.week] || 0) + mins;
         archive.months[k.month] = (archive.months[k.month] || 0) + mins;
         archive.years[k.year] = (archive.years[k.year] || 0) + mins;
+
         history.push({ title, duration: mins, date: dateIso });
         const limit = new Date();
-        limit.setDate(limit.getDate() - 30); // Verlauf auf 30 Tage erhöht
+        limit.setDate(limit.getDate() - 30);
         history = history.filter((i) => new Date(i.date) >= limit);
       }
 
@@ -370,10 +376,11 @@
           document.getElementById("startBtn").onclick = startTask;
           document.getElementById("timerDisplay").innerText = "00:00:00";
         } else {
-          ctrl.innerHTML = `<button class="btn-pause" id="pauseBtn">${
-            activeTask.isPaused ? "Weiter" : "Pause"
-          }</button>
-                            <button class="btn-stop" id="stopBtn">Stopp</button>`;
+          ctrl.innerHTML = `
+            <button class="btn-pause" id="pauseBtn">${
+              activeTask.isPaused ? "Weiter" : "Pause"
+            }</button>
+            <button class="btn-stop" id="stopBtn">Stopp</button>`;
           document.getElementById("pauseBtn").onclick = togglePause;
           document.getElementById("stopBtn").onclick = stopTask;
           document.getElementById("taskInput").value = activeTask.title;
@@ -455,6 +462,7 @@
         let yrs = Object.keys(archive.years || {});
         if (!yrs.includes(curY)) yrs.push(curY);
         yrs.sort((a, b) => b - a);
+
         if (ys.options.length !== yrs.length) {
           const old = ys.value || curY;
           ys.innerHTML = yrs
@@ -498,14 +506,11 @@
             .map(
               (item, idx) => `
           <div class="history-item">
-            <div><span class="task-title">${
-              item.title
-            }</span><br><span class="task-date">${new Date(
-                item.date
-              ).toLocaleTimeString("de-DE", {
-                hour: "2-digit",
-                minute: "2-digit",
-              })} Uhr</span></div>
+            <div><span class="task-title">${item.title}</span><br>
+            <span class="task-date">${new Date(item.date).toLocaleTimeString(
+              "de-DE",
+              { hour: "2-digit", minute: "2-digit" }
+            )} Uhr</span></div>
             <div style="display:flex; align-items:center; gap:10px;">
               <span class="task-dur">${formatTime(item.duration)}</span>
               ${
@@ -537,10 +542,19 @@
         }, 1000);
       }
 
-      // Samsung Fix: Event-Listener statt HTML-Attribute
-      document
-        .getElementById("saveManualBtn")
-        .addEventListener("click", saveManualTask);
+      // Samsung/Mobile Fix: Mehrere Event-Typen für den Speicher-Button
+      const saveBtn = document.getElementById("saveManualBtn");
+      const handleManualSave = (e) => {
+        // Verhindert Standard-Verhalten und doppeltes Ausführen
+        if (e.type === "touchstart") e.preventDefault();
+        saveManualTask();
+      };
+
+      saveBtn.addEventListener("click", handleManualSave);
+      saveBtn.addEventListener("touchstart", handleManualSave, {
+        passive: false,
+      });
+
       document
         .getElementById("addManualBtn")
         .addEventListener("click", toggleManualForm);
@@ -553,6 +567,7 @@
       document
         .getElementById("historyFilter")
         .addEventListener("change", renderHistory);
+
       document
         .getElementById("taskInput")
         .addEventListener("change", function () {

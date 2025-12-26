@@ -2,7 +2,10 @@
 <html lang="de">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
     <title>Lebenszeit Tracker</title>
     <style>
       :root {
@@ -13,14 +16,14 @@
         --bg: #f4f7f6;
       }
       body {
-        font-family: -apple-system, sans-serif;
+        font-family: -apple-system, system-ui, sans-serif;
         background: var(--bg);
         padding: 15px;
         display: flex;
         flex-direction: column;
         align-items: center;
         margin: 0;
-        min-height: 100vh; /* Sorgt dafür, dass das Impressum unten bleiben kann */
+        min-height: 100vh;
       }
       .card {
         background: white;
@@ -77,7 +80,6 @@
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 8px;
-        margin-top: 10px;
       }
       .stat-item {
         background: #f8f9fa;
@@ -87,7 +89,6 @@
         border: 1px solid #eee;
         display: flex;
         flex-direction: column;
-        justify-content: center;
       }
       .stat-label {
         font-size: 0.7rem;
@@ -113,32 +114,61 @@
         font-weight: bold;
       }
 
+      #manualForm {
+        display: none;
+        background: #fdfdfd;
+        border: 1px solid #eee;
+        border-radius: 10px;
+        padding: 15px;
+        margin-top: 15px;
+        position: relative;
+      }
+      .manual-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+      .manual-header span {
+        font-size: 0.85rem;
+        font-weight: bold;
+        color: #7f8c8d;
+      }
+      .btn-close-x {
+        background: none;
+        border: none;
+        color: #bdc3c7;
+        font-size: 1.5rem;
+        cursor: pointer;
+        line-height: 1;
+        padding: 0;
+        width: auto;
+      }
+      .btn-save-manual {
+        background: var(--primary);
+        width: 100%;
+        margin-top: 5px;
+      }
+
       .history-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
         margin-bottom: 10px;
       }
-      .header-left {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-      }
       .btn-add-manual {
         background: var(--primary);
         color: white;
         border-radius: 50%;
-        width: 25px;
-        height: 25px;
+        width: 28px;
+        height: 28px;
         display: flex;
         align-items: center;
         justify-content: center;
         font-size: 1.2rem;
         cursor: pointer;
         border: none;
-        line-height: 1;
       }
-
       .history-list {
         max-height: 250px;
         overflow-y: auto;
@@ -149,9 +179,6 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-      }
-      .history-item:last-child {
-        border-bottom: none;
       }
       .task-info {
         display: flex;
@@ -170,7 +197,6 @@
         color: var(--primary);
       }
 
-      /* Impressum Style */
       footer {
         margin-top: auto;
         padding: 20px;
@@ -207,14 +233,14 @@
           ><span class="stat-val" id="statMonth">0</span>
         </div>
         <div class="stat-item">
-          <span class="stat-label">
-            Jahr
+          <span class="stat-label"
+            >Jahr
             <select
               id="yearSelect"
               class="year-select"
               onchange="renderStats()"
-            ></select>
-          </span>
+            ></select
+          ></span>
           <span class="stat-val" id="statYear">0</span>
         </div>
       </div>
@@ -222,15 +248,9 @@
 
     <div class="card">
       <div class="history-header">
-        <div class="header-left">
+        <div style="display: flex; align-items: center; gap: 10px">
           <strong>Verlauf</strong>
-          <button
-            class="btn-add-manual"
-            onclick="addManualTask()"
-            title="Manuell hinzufügen"
-          >
-            +
-          </button>
+          <button class="btn-add-manual" onclick="toggleManualForm()">+</button>
         </div>
         <select
           id="historyFilter"
@@ -242,6 +262,27 @@
           <option value="7">Letzte 7 Tage</option>
         </select>
       </div>
+
+      <div id="manualForm">
+        <div class="manual-header">
+          <span>MANUELL HINZUFÜGEN</span>
+          <button class="btn-close-x" onclick="toggleManualForm()">
+            &times;
+          </button>
+        </div>
+        <input type="text" id="manualTitle" placeholder="Titel der Aufgabe" />
+        <input
+          type="number"
+          id="manualMins"
+          placeholder="Minuten (z.B. 30)"
+          pattern="\d*"
+          inputmode="numeric"
+        />
+        <button class="btn-save-manual" onclick="saveManualTask()">
+          Eintrag speichern
+        </button>
+      </div>
+
       <div id="historyList" class="history-list"></div>
     </div>
 
@@ -262,6 +303,28 @@
         years: {},
       };
       let timerInterval;
+
+      // Zeitformatierung auf Deutsch: min -> Std -> Tg Std
+      function formatTime(mins) {
+        if (!mins || mins === 0) return "0 min";
+
+        // Unter 90 Minuten -> min
+        if (mins < 90) return mins + " min";
+
+        // Ab 90 Minuten bis unter 24 Stunden -> Std (mit 1 Dezimalstelle)
+        if (mins < 1440) {
+          const hours = (mins / 60).toFixed(1);
+          return hours.replace(".0", "") + " Std";
+        }
+
+        // Ab 24 Stunden -> Tage und Stunden
+        const days = Math.floor(mins / 1440);
+        const remainingMins = mins % 1440;
+        const hours = Math.floor(remainingMins / 60);
+
+        if (hours === 0) return `${days} Tg`;
+        return `${days} Tg ${hours} Std`;
+      }
 
       function getTimeKeys(dateStr) {
         const d = new Date(dateStr);
@@ -302,10 +365,45 @@
         renderHistory();
       }
 
+      function toggleManualForm() {
+        const form = document.getElementById("manualForm");
+        const isOpening = form.style.display !== "block";
+        form.style.display = isOpening ? "block" : "none";
+        if (isOpening) {
+          document.getElementById("manualTitle").value =
+            document.getElementById("taskInput").value;
+          document.getElementById("manualMins").value = "";
+          document.getElementById("manualTitle").focus();
+        }
+      }
+
+      function saveManualTask() {
+        const title =
+          document.getElementById("manualTitle").value || "Manuelle Aufgabe";
+        const mins = parseInt(document.getElementById("manualMins").value);
+        if (!isNaN(mins) && mins > 0) {
+          addToArchive(title, mins, new Date().toISOString());
+          save();
+          toggleManualForm();
+          updateUI();
+        }
+      }
+
+      function addToArchive(title, mins, dateIso) {
+        const keys = getTimeKeys(dateIso);
+        archive.days[keys.day] = (archive.days[keys.day] || 0) + mins;
+        archive.weeks[keys.week] = (archive.weeks[keys.week] || 0) + mins;
+        archive.months[keys.month] = (archive.months[keys.month] || 0) + mins;
+        archive.years[keys.year] = (archive.years[keys.year] || 0) + mins;
+        history.push({ title, duration: mins, date: dateIso });
+        const limit = new Date();
+        limit.setDate(limit.getDate() - 7);
+        history = history.filter((item) => new Date(item.date) >= limit);
+      }
+
       function startTask() {
-        const title = document.getElementById("taskInput").value || "Aufgabe";
         activeTask = {
-          title,
+          title: document.getElementById("taskInput").value || "Aufgabe",
           startTime: Date.now(),
           accumulatedTime: 0,
           isPaused: false,
@@ -326,34 +424,6 @@
         }
         save();
         updateUI();
-      }
-
-      function addManualTask() {
-        const title = prompt(
-          "Was hast du erledigt?",
-          document.getElementById("taskInput").value || "Manuelle Aufgabe"
-        );
-        if (!title) return;
-        const minsInput = prompt("Wie viele Minuten?", "15");
-        const mins = parseInt(minsInput);
-        if (!isNaN(mins) && mins > 0) {
-          const now = new Date().toISOString();
-          addToArchive(title, mins, now);
-          save();
-          updateUI();
-        }
-      }
-
-      function addToArchive(title, mins, dateIso) {
-        const keys = getTimeKeys(dateIso);
-        archive.days[keys.day] = (archive.days[keys.day] || 0) + mins;
-        archive.weeks[keys.week] = (archive.weeks[keys.week] || 0) + mins;
-        archive.months[keys.month] = (archive.months[keys.month] || 0) + mins;
-        archive.years[keys.year] = (archive.years[keys.year] || 0) + mins;
-        history.push({ title, duration: mins, date: dateIso });
-        const limit = new Date();
-        limit.setDate(limit.getDate() - 7);
-        history = history.filter((item) => new Date(item.date) >= limit);
       }
 
       function stopTask() {
@@ -388,28 +458,21 @@
           .filter((item) => {
             const itemDate = new Date(item.date);
             if (filterValue === 0) return itemDate.toDateString() === todayStr;
-            const diffDays = Math.ceil(
-              Math.abs(now - itemDate) / (1000 * 60 * 60 * 24)
+            return (
+              Math.ceil(Math.abs(now - itemDate) / 86400000) <= filterValue
             );
-            return diffDays <= filterValue;
           })
           .slice()
           .reverse();
         const itemToDelete = filtered[indexInFiltered];
-        if (new Date(itemToDelete.date).toDateString() !== todayStr) {
-          alert("Nur heutige Einträge löschbar.");
-          return;
-        }
+        if (new Date(itemToDelete.date).toDateString() !== todayStr)
+          return alert("Nur heute löschbar.");
         if (confirm(`"${itemToDelete.title}" löschen?`)) {
-          const keys = getTimeKeys(itemToDelete.date);
-          if (archive.days[keys.day])
-            archive.days[keys.day] -= itemToDelete.duration;
-          if (archive.weeks[keys.week])
-            archive.weeks[keys.week] -= itemToDelete.duration;
-          if (archive.months[keys.month])
-            archive.months[keys.month] -= itemToDelete.duration;
-          if (archive.years[keys.year])
-            archive.years[keys.year] -= itemToDelete.duration;
+          const k = getTimeKeys(itemToDelete.date);
+          archive.days[k.day] -= itemToDelete.duration;
+          archive.weeks[k.week] -= itemToDelete.duration;
+          archive.months[k.month] -= itemToDelete.duration;
+          archive.years[k.year] -= itemToDelete.duration;
           history = history.filter((i) => i !== itemToDelete);
           save();
           updateUI();
@@ -420,85 +483,69 @@
         const k = getTimeKeys(new Date());
         const yearSelect = document.getElementById("yearSelect");
         const currentYear = new Date().getFullYear().toString();
-
-        // 1. Alle Jahre aus dem Archiv holen
-        let availableYears = Object.keys(archive.years || {});
-
-        // 2. Sicherstellen, dass das aktuelle Jahr IMMER vorhanden ist
-        if (!availableYears.includes(currentYear)) {
-          availableYears.push(currentYear);
-        }
-
-        // 3. Sortieren (neueste oben)
-        availableYears.sort((a, b) => b - a);
-
-        // 4. Dropdown befüllen, falls es leer ist oder sich die Anzahl der Jahre geändert hat
-        if (yearSelect.options.length !== availableYears.length) {
-          // Merken, was gerade gewählt war (falls vorhanden)
-          const lastSelection = yearSelect.value;
-
-          yearSelect.innerHTML = availableYears
-            .map((y) => `<option value="${y}">${y}</option>`)
+        let years = Object.keys(archive.years || {});
+        if (!years.includes(currentYear)) years.push(currentYear);
+        years.sort((a, b) => b - a);
+        if (yearSelect.options.length !== years.length) {
+          const sel = yearSelect.value || currentYear;
+          yearSelect.innerHTML = years
+            .map(
+              (y) =>
+                `<option value="${y}" ${
+                  y === sel ? "selected" : ""
+                }>${y}</option>`
+            )
             .join("");
-
-          // Wieder auf die vorherige Wahl setzen oder auf das aktuelle Jahr
-          yearSelect.value = lastSelection || currentYear;
         }
+        const sYear = yearSelect.value || currentYear;
 
-        const selectedYear = yearSelect.value || currentYear;
-
-        // 5. Werte in die UI schreiben
-        document.getElementById("statDay").innerText =
-          (archive.days[k.day] || 0) + "m";
-        document.getElementById("statWeek").innerText =
-          (archive.weeks[k.week] || 0) + "m";
-        document.getElementById("statMonth").innerText =
-          (archive.months[k.month] || 0) + "m";
-        document.getElementById("statYear").innerText =
-          (archive.years[selectedYear] || 0) + "m";
+        document.getElementById("statDay").innerText = formatTime(
+          archive.days[k.day]
+        );
+        document.getElementById("statWeek").innerText = formatTime(
+          archive.weeks[k.week]
+        );
+        document.getElementById("statMonth").innerText = formatTime(
+          archive.months[k.month]
+        );
+        document.getElementById("statYear").innerText = formatTime(
+          archive.years[sYear]
+        );
       }
 
       function renderHistory() {
-        const filterValue = parseInt(
-          document.getElementById("historyFilter").value
-        );
-        const list = document.getElementById("historyList");
+        const filter = parseInt(document.getElementById("historyFilter").value);
         const now = new Date();
-        const todayStr = now.toDateString();
         const filtered = history.filter((item) => {
-          const itemDate = new Date(item.date);
-          if (filterValue === 0) return itemDate.toDateString() === todayStr;
-          const diffDays = Math.ceil(
-            Math.abs(now - itemDate) / (1000 * 60 * 60 * 24)
-          );
-          return diffDays <= filterValue;
+          const d = new Date(item.date);
+          if (filter === 0) return d.toDateString() === now.toDateString();
+          return Math.ceil(Math.abs(now - d) / 86400000) <= filter;
         });
-        list.innerHTML =
+        document.getElementById("historyList").innerHTML =
           filtered
             .slice()
             .reverse()
-            .map((item, index) => {
-              const itemDate = new Date(item.date);
-              const isToday = itemDate.toDateString() === todayStr;
-              return `
-                <div class="history-item">
-                    <div class="task-info">
-                        <span class="task-title">${item.title}</span>
-                        <span class="task-date">${itemDate.toLocaleTimeString(
-                          "de-DE",
-                          { hour: "2-digit", minute: "2-digit" }
-                        )} Uhr</span>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 12px;">
-                        <span class="task-dur">${item.duration}m</span>
-                        ${
-                          isToday
-                            ? `<button onclick="deleteEntry(${index})" style="background: none; border: none; color: #e74c3c; font-size: 1.4rem; cursor: pointer;">&times;</button>`
-                            : '<div style="width: 25px;"></div>'
-                        } 
-                    </div>
-                </div>`;
-            })
+            .map(
+              (item, index) => `
+          <div class="history-item">
+            <div class="task-info"><span class="task-title">${
+              item.title
+            }</span><span class="task-date">${new Date(
+                item.date
+              ).toLocaleTimeString("de-DE", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })} Uhr</span></div>
+            <div style="display:flex; align-items:center; gap:12px;"><span class="task-dur">${formatTime(
+              item.duration
+            )}</span>
+            ${
+              new Date(item.date).toDateString() === now.toDateString()
+                ? `<button onclick="deleteEntry(${index})" style="background:none; border:none; color:#e74c3c; font-size:1.4rem;">&times;</button>`
+                : '<div style="width:25px;"></div>'
+            }</div>
+          </div>`
+            )
             .join("") ||
           '<div style="text-align:center; padding:20px; color:#ccc;">Keine Einträge</div>';
       }

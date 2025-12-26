@@ -267,9 +267,34 @@
       <div id="historyList" class="history-list"></div>
     </div>
 
-    <footer>
-      &copy; <span id="copyrightYear"></span> Oliver Ahlig · Lebenszeit Tracker
-      - v26.12.16.44
+    <footer
+      style="
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+      "
+    >
+      <div>
+        &copy; <span id="copyrightYear"></span> Oliver Ahlig · Lebenszeit
+        Tracker - v26.12.16.45
+      </div>
+      <button
+        id="resetAppBtn"
+        style="
+          background: none;
+          color: #e74c3c;
+          font-size: 0.65rem;
+          border: 1px solid #e74c3c;
+          padding: 4px 8px;
+          border-radius: 4px;
+          width: auto;
+          opacity: 0.6;
+          font-weight: normal;
+        "
+      >
+        Daten vollständig löschen
+      </button>
     </footer>
 
     <script>
@@ -583,6 +608,23 @@
           ) {
             activeTask.title = this.value;
             save();
+          }
+        });
+
+      document
+        .getElementById("resetAppBtn")
+        .addEventListener("click", function () {
+          const confirm1 = confirm(
+            "Möchtest du wirklich ALLE Daten (History und Statistiken) löschen?"
+          );
+          if (confirm1) {
+            const confirm2 = confirm(
+              "Bist du GANZ sicher? Dies kann nicht rückgängig gemacht werden!"
+            );
+            if (confirm2) {
+              localStorage.clear();
+              location.reload(); // Lädt die Seite neu und setzt alles auf Null
+            }
           }
         });
 

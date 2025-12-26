@@ -420,22 +420,34 @@
         const k = getTimeKeys(new Date());
         const yearSelect = document.getElementById("yearSelect");
         const currentYear = new Date().getFullYear().toString();
-        let availableYears = Object.keys(archive.years);
-        if (!availableYears.includes(currentYear))
+
+        // 1. Alle Jahre aus dem Archiv holen
+        let availableYears = Object.keys(archive.years || {});
+
+        // 2. Sicherstellen, dass das aktuelle Jahr IMMER vorhanden ist
+        if (!availableYears.includes(currentYear)) {
           availableYears.push(currentYear);
-        availableYears.sort((a, b) => b - a);
-        if (yearSelect.options.length !== availableYears.length) {
-          const currentSelection = yearSelect.value || currentYear;
-          yearSelect.innerHTML = availableYears
-            .map(
-              (y) =>
-                `<option value="${y}" ${
-                  y === currentSelection ? "selected" : ""
-                }>${y}</option>`
-            )
-            .join("");
         }
+
+        // 3. Sortieren (neueste oben)
+        availableYears.sort((a, b) => b - a);
+
+        // 4. Dropdown befüllen, falls es leer ist oder sich die Anzahl der Jahre geändert hat
+        if (yearSelect.options.length !== availableYears.length) {
+          // Merken, was gerade gewählt war (falls vorhanden)
+          const lastSelection = yearSelect.value;
+
+          yearSelect.innerHTML = availableYears
+            .map((y) => `<option value="${y}">${y}</option>`)
+            .join("");
+
+          // Wieder auf die vorherige Wahl setzen oder auf das aktuelle Jahr
+          yearSelect.value = lastSelection || currentYear;
+        }
+
         const selectedYear = yearSelect.value || currentYear;
+
+        // 5. Werte in die UI schreiben
         document.getElementById("statDay").innerText =
           (archive.days[k.day] || 0) + "m";
         document.getElementById("statWeek").innerText =

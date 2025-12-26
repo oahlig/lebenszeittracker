@@ -238,6 +238,248 @@
           </button>
         </div>
         <select id="historyFilter" style="padding: 5px; border-radius: 5px">
+          <option value="0" selected>Heute</option>
+          <option value="3">3 Tage</option>
+          <opti value="7">7 Tage</opti<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>Lebenszeit Tracker</title>
+    <style>
+      :root {
+        --primary: #3498db;
+        --secondary: #2ecc71;
+        --warning: #f1c40f;
+        --danger: #e74c3c;
+        --bg: #f4f7f6;
+      }
+      body {
+        font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI",
+          Roboto, Helvetica, Arial, sans-serif;
+        background: var(--bg);
+        padding: 15px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin: 0;
+        min-height: 100vh;
+      }
+      .card {
+        background: white;
+        border-radius: 15px;
+        padding: 20px;
+        width: 100%;
+        max-width: 400px;
+        margin-bottom: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        box-sizing: border-box;
+      }
+      input {
+        width: 100%;
+        padding: 12px;
+        margin-bottom: 10px;
+        border: 2px solid #eee;
+        border-radius: 8px;
+        font-size: 1rem;
+        box-sizing: border-box;
+      }
+      .timer {
+        font-size: 3rem;
+        text-align: center;
+        margin: 10px 0;
+        font-family: monospace;
+        font-weight: bold;
+        color: var(--primary);
+      }
+      .btn-group {
+        display: flex;
+        gap: 10px;
+      }
+      button {
+        flex: 1;
+        padding: 12px;
+        border: none;
+        border-radius: 8px;
+        color: white;
+        font-weight: bold;
+        cursor: pointer;
+        font-size: 1rem;
+        touch-action: manipulation;
+      }
+      .btn-start {
+        background: var(--secondary);
+      }
+      .btn-pause {
+        background: var(--warning);
+      }
+      .btn-stop {
+        background: var(--danger);
+      }
+
+      .stats-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      .stat-item {
+        background: #f8f9fa;
+        padding: 10px;
+        border-radius: 8px;
+        text-align: center;
+        border: 1px solid #eee;
+      }
+      .stat-label {
+        font-size: 0.7rem;
+        color: #7f8c8d;
+        display: block;
+        text-transform: uppercase;
+        margin-bottom: 4px;
+      }
+      .stat-val {
+        font-weight: bold;
+        font-size: 1.1rem;
+        color: #2c3e50;
+      }
+      .year-select {
+        border: none;
+        background: #ececec;
+        font-size: 0.65rem;
+        color: #555;
+        border-radius: 4px;
+        padding: 2px 4px;
+        font-weight: bold;
+      }
+
+      #manualForm {
+        display: none;
+        background: #fdfdfd;
+        border: 1px solid #eee;
+        border-radius: 10px;
+        padding: 15px;
+        margin-top: 15px;
+      }
+      .manual-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+      .btn-close-x {
+        background: none;
+        color: #bdc3c7;
+        font-size: 1.5rem;
+        width: auto;
+      }
+      .btn-save-manual {
+        background: var(--primary);
+        width: 100%;
+        min-height: 48px; /* Bessere Trefferfläche für Mobile */
+      }
+
+      .history-list {
+        max-height: 250px;
+        overflow-y: auto;
+      }
+      .history-item {
+        padding: 10px 0;
+        border-bottom: 1px solid #f1f1f1;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .task-title {
+        font-weight: bold;
+        font-size: 0.9rem;
+      }
+      .task-date {
+        font-size: 0.7rem;
+        color: #bdc3c7;
+      }
+      .task-dur {
+        font-weight: bold;
+        color: var(--primary);
+      }
+      .btn-del {
+        background: none;
+        color: #e74c3c;
+        font-size: 1.4rem;
+        width: auto;
+        padding: 0 5px;
+      }
+
+      footer {
+        margin-top: auto;
+        padding: 20px;
+        text-align: center;
+        font-size: 0.75rem;
+        color: #95a5a6;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <input
+        type="text"
+        id="taskInput"
+        placeholder="Was investierst du gerade?"
+      />
+      <div class="timer" id="timerDisplay">00:00:00</div>
+      <div class="btn-group" id="controls"></div>
+    </div>
+
+    <div class="card">
+      <div class="stats-grid">
+        <div class="stat-item">
+          <span class="stat-label">Heute</span>
+          <span class="stat-val" id="statDay">0 min</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Woche</span>
+          <span class="stat-val" id="statWeek">0 min</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Monat</span>
+          <span class="stat-val" id="statMonth">0 min</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label"
+            >Jahr
+            <select id="yearSelect" class="year-select"></select
+          ></span>
+          <span class="stat-val" id="statYear">0 min</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div
+        style="
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 10px;
+        "
+      >
+        <div style="display: flex; align-items: center; gap: 10px">
+          <strong>Verlauf</strong>
+          <button
+            id="addManualBtn"
+            style="
+              background: var(--primary);
+              border-radius: 50%;
+              width: 32px;
+              height: 32px;
+              padding: 0;
+            "
+          >
+            +
+          </button>
+        </div>
+        <select id="historyFilter" style="padding: 5px; border-radius: 5px">
           <option value="0">Heute</option>
           <option value="3" selected>3 Tage</option>
           <option value="7">7 Tage</option>
@@ -273,14 +515,11 @@
 
     <script>
       // Zentrales Versions-Management
-      const VERSION = "16.22"; // Hier einfach die neue Zeit/Version eintragen
+      const VERSION = "16.22";
 
       document.getElementById("copyrightYear").innerText =
         new Date().getFullYear();
       document.getElementById("appVersion").innerText = VERSION;
-
-      document.getElementById("copyrightYear").innerText =
-        new Date().getFullYear();
 
       let history = JSON.parse(localStorage.getItem("wt_history")) || [];
       let activeTask = JSON.parse(localStorage.getItem("wt_active")) || null;
@@ -356,7 +595,6 @@
           save();
           toggleManualForm();
           updateUI();
-          // Fokus entfernen schließt Tastatur
           titleEl.blur();
           minsEl.blur();
         } else {
@@ -499,8 +737,6 @@
       function renderHistory() {
         const fVal = parseInt(document.getElementById("historyFilter").value);
         const now = new Date();
-
-        // 1. Filtern der Daten
         const filtered = history.filter((item) => {
           const d = new Date(item.date);
           if (fVal === 0) return d.toDateString() === now.toDateString();
@@ -509,25 +745,19 @@
         });
 
         const list = document.getElementById("historyList");
-
-        // 2. Platzhalter-Check (WICHTIG!)
         if (filtered.length === 0) {
           list.innerHTML =
             '<div style="text-align:center; padding:20px; color:#ccc;">Keine Einträge vorhanden</div>';
           return;
         }
 
-        // 3. HTML generieren (Neueste zuerst durch slice().reverse())
         const htmlRows = filtered
           .slice()
           .reverse()
           .map((item) => {
             const isToday =
               new Date(item.date).toDateString() === now.toDateString();
-
-            // Wir suchen den echten Index im originalen History-Array für die Löschfunktion
             const originalIdx = history.indexOf(item);
-
             return `
       <div class="history-item">
         <div>
@@ -547,8 +777,6 @@
         </div>
       </div>`;
           });
-
-        // 4. Das Array zu einem String zusammenfügen und rendern
         list.innerHTML = htmlRows.join("");
       }
 
@@ -569,18 +797,364 @@
         }, 1000);
       }
 
-      // Samsung/Mobile Fix: Mehrere Event-Typen für den Speicher-Button
-      const saveBtn = document.getElementById("saveManualBtn");
-      const handleManualSave = (e) => {
-        // Verhindert Standard-Verhalten und doppeltes Ausführen
-        if (e.type === "touchstart") e.preventDefault();
-        saveManualTask();
-      };
-
-      saveBtn.addEventListener("click", handleManualSave);
-      saveBtn.addEventListener("touchstart", handleManualSave, {
-        passive: false,
+      // FIX FÜR MOBILE SPEICHERN:
+      // Wir nutzen nur "click". Moderne mobile Browser emulieren das "click" 
+      // nach einem Tap bereits korrekt. Das doppelte Zuweisen von touchstart 
+      // und click verursacht oft Konflikte.
+      document.getElementById("saveManualBtn").addEventListener("click", function(e) {
+          saveManualTask();
       });
+
+      document
+        .getElementById("addManualBtn")
+        .addEventListener("click", toggleManualForm);
+      document
+        .getElementById("closeManualBtn")
+        .addEventListener("click", toggleManualForm);
+      document
+        .getElementById("yearSelect")
+        .addEventListener("change", renderStats);
+      document
+        .getElementById("historyFilter")
+        .addEventListener("change", renderHistory);
+
+      document
+        .getElementById("taskInput")
+        .addEventListener("change", function () {
+          if (activeTask && this.value !== activeTask.title) {
+            stopTask();
+            startTask();
+          }
+        });
+
+      if (activeTask && !activeTask.isPaused) runTimer();
+      updateUI();
+    </script>
+  </body>
+</html>on>
+        </select>
+      </div>
+
+      <div id="manualForm">
+        <div class="manual-header">
+          <span style="font-size: 0.75rem; font-weight: bold; color: #7f8c8d"
+            >MANUELL HINZUFÜGEN</span
+          >
+          <button id="closeManualBtn" class="btn-close-x">&times;</button>
+        </div>
+        <input type="text" id="manualTitle" placeholder="Titel" />
+        <input
+          type="number"
+          id="manualMins"
+          placeholder="Minuten"
+          inputmode="numeric"
+        />
+        <button id="saveManualBtn" class="btn-save-manual">
+          Eintrag speichern
+        </button>
+      </div>
+
+      <div id="historyList" class="history-list"></div>
+    </div>
+
+    <footer>
+      &copy; <span id="copyrightYear"></span> Oliver Ahlig · Lebenszeit Tracker
+      - <span id="appVersion"></span>
+    </footer>
+
+    <script>
+      // Zentrales Versions-Management
+      const VERSION = "16.29";
+
+      document.getElementById("copyrightYear").innerText =
+        new Date().getFullYear();
+      document.getElementById("appVersion").innerText = VERSION;
+
+      let history = JSON.parse(localStorage.getItem("wt_history")) || [];
+      let activeTask = JSON.parse(localStorage.getItem("wt_active")) || null;
+      let archive = JSON.parse(localStorage.getItem("wt_archive")) || {
+        days: {},
+        weeks: {},
+        months: {},
+        years: {},
+      };
+      let timerInterval;
+
+      function formatTime(mins) {
+        if (!mins || mins <= 0) return "0 min";
+        if (mins < 90) return mins + " min";
+        if (mins < 1440)
+          return (mins / 60).toFixed(1).replace(".0", "") + " Std";
+        const d = Math.floor(mins / 1440);
+        const h = Math.floor((mins % 1440) / 60);
+        return h === 0 ? `${d} Tg` : `${d} Tg ${h} Std`;
+      }
+
+      function getTimeKeys(dateStr) {
+        const d = new Date(dateStr);
+        const day = d.toISOString().split("T")[0];
+        const month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
+          2,
+          "0"
+        )}`;
+        const year = `${d.getFullYear()}`;
+
+        const t = new Date(d.getTime());
+        t.setHours(0, 0, 0, 0);
+        t.setDate(t.getDate() + 3 - ((t.getDay() + 6) % 7));
+        const w1 = new Date(t.getFullYear(), 0, 4);
+        const week = `${t.getFullYear()}-W${String(
+          1 +
+            Math.round(
+              ((t.getTime() - w1.getTime()) / 86400000 -
+                3 +
+                ((w1.getDay() + 6) % 7)) /
+                7
+            )
+        ).padStart(2, "0")}`;
+
+        return { day, week, month, year };
+      }
+
+      function save() {
+        localStorage.setItem("wt_active", JSON.stringify(activeTask));
+        localStorage.setItem("wt_history", JSON.stringify(history));
+        localStorage.setItem("wt_archive", JSON.stringify(archive));
+      }
+
+      function toggleManualForm() {
+        const f = document.getElementById("manualForm");
+        f.style.display = f.style.display === "block" ? "none" : "block";
+        if (f.style.display === "block") {
+          document.getElementById("manualTitle").value =
+            document.getElementById("taskInput").value;
+          document.getElementById("manualMins").value = "";
+        }
+      }
+
+      function saveManualTask() {
+        const titleEl = document.getElementById("manualTitle");
+        const minsEl = document.getElementById("manualMins");
+
+        const t = titleEl.value.trim() || "Aufgabe";
+        const m = parseInt(minsEl.value, 10);
+
+        if (!isNaN(m) && m > 0) {
+          addToArchive(t, m, new Date().toISOString());
+          save();
+          toggleManualForm();
+          updateUI();
+          titleEl.blur();
+          minsEl.blur();
+        } else {
+          alert("Bitte Minuten eingeben");
+        }
+      }
+
+      function addToArchive(title, mins, dateIso) {
+        const k = getTimeKeys(dateIso);
+        archive.days[k.day] = (archive.days[k.day] || 0) + mins;
+        archive.weeks[k.week] = (archive.weeks[k.week] || 0) + mins;
+        archive.months[k.month] = (archive.months[k.month] || 0) + mins;
+        archive.years[k.year] = (archive.years[k.year] || 0) + mins;
+
+        history.push({ title, duration: mins, date: dateIso });
+        const limit = new Date();
+        limit.setDate(limit.getDate() - 30);
+        history = history.filter((i) => new Date(i.date) >= limit);
+      }
+
+      function updateUI() {
+        const ctrl = document.getElementById("controls");
+        if (!activeTask) {
+          ctrl.innerHTML = `<button class="btn-start" id="startBtn">Starten</button>`;
+          document.getElementById("startBtn").onclick = startTask;
+          document.getElementById("timerDisplay").innerText = "00:00:00";
+        } else {
+          ctrl.innerHTML = `
+            <button class="btn-pause" id="pauseBtn">${
+              activeTask.isPaused ? "Weiter" : "Pause"
+            }</button>
+            <button class="btn-stop" id="stopBtn">Stopp</button>`;
+          document.getElementById("pauseBtn").onclick = togglePause;
+          document.getElementById("stopBtn").onclick = stopTask;
+          document.getElementById("taskInput").value = activeTask.title;
+        }
+        renderStats();
+        renderHistory();
+      }
+
+      function startTask() {
+        activeTask = {
+          title: document.getElementById("taskInput").value || "Aufgabe",
+          startTime: Date.now(),
+          accumulatedTime: 0,
+          isPaused: false,
+          date: new Date().toISOString(),
+        };
+        save();
+        runTimer();
+        updateUI();
+      }
+
+      function togglePause() {
+        if (activeTask.isPaused) {
+          activeTask.startTime = Date.now();
+          activeTask.isPaused = false;
+        } else {
+          activeTask.accumulatedTime += Date.now() - activeTask.startTime;
+          activeTask.isPaused = true;
+        }
+        save();
+        updateUI();
+      }
+
+      function stopTask() {
+        if (!activeTask) return;
+        let ms =
+          activeTask.accumulatedTime +
+          (activeTask.isPaused ? 0 : Date.now() - activeTask.startTime);
+        let mins = Math.round(ms / 60000);
+        if (mins > 0) addToArchive(activeTask.title, mins, activeTask.date);
+        activeTask = null;
+        clearInterval(timerInterval);
+        save();
+        updateUI();
+      }
+
+      function deleteEntry(idx) {
+        const fVal = parseInt(document.getElementById("historyFilter").value);
+        const now = new Date();
+        const filtered = history
+          .filter((i) => {
+            const d = new Date(i.date);
+            if (fVal === 0) return d.toDateString() === now.toDateString();
+            return Math.ceil(Math.abs(now - d) / 86400000) <= fVal;
+          })
+          .slice()
+          .reverse();
+
+        const item = filtered[idx];
+        if (new Date(item.date).toDateString() !== now.toDateString())
+          return alert("Nur heutige Einträge löschbar.");
+
+        if (confirm(`"${item.title}" löschen?`)) {
+          const k = getTimeKeys(item.date);
+          archive.days[k.day] -= item.duration;
+          archive.weeks[k.week] -= item.duration;
+          archive.months[k.month] -= item.duration;
+          archive.years[k.year] -= item.duration;
+          history = history.filter((i) => i !== item);
+          save();
+          updateUI();
+        }
+      }
+
+      function renderStats() {
+        const k = getTimeKeys(new Date());
+        const ys = document.getElementById("yearSelect");
+        const curY = new Date().getFullYear().toString();
+        let yrs = Object.keys(archive.years || {});
+        if (!yrs.includes(curY)) yrs.push(curY);
+        yrs.sort((a, b) => b - a);
+
+        if (ys.options.length !== yrs.length) {
+          const old = ys.value || curY;
+          ys.innerHTML = yrs
+            .map(
+              (y) =>
+                `<option value="${y}" ${
+                  y === old ? "selected" : ""
+                }>${y}</option>`
+            )
+            .join("");
+        }
+        document.getElementById("statDay").innerText = formatTime(
+          archive.days[k.day]
+        );
+        document.getElementById("statWeek").innerText = formatTime(
+          archive.weeks[k.week]
+        );
+        document.getElementById("statMonth").innerText = formatTime(
+          archive.months[k.month]
+        );
+        document.getElementById("statYear").innerText = formatTime(
+          archive.years[ys.value || curY]
+        );
+      }
+
+      function renderHistory() {
+        const fVal = parseInt(document.getElementById("historyFilter").value);
+        const now = new Date();
+        const filtered = history.filter((item) => {
+          const d = new Date(item.date);
+          if (fVal === 0) return d.toDateString() === now.toDateString();
+          const diffDays = Math.ceil(Math.abs(now - d) / 86400000);
+          return diffDays <= fVal;
+        });
+
+        const list = document.getElementById("historyList");
+        if (filtered.length === 0) {
+          list.innerHTML =
+            '<div style="text-align:center; padding:20px; color:#ccc;">Keine Einträge vorhanden</div>';
+          return;
+        }
+
+        const htmlRows = filtered
+          .slice()
+          .reverse()
+          .map((item) => {
+            const isToday =
+              new Date(item.date).toDateString() === now.toDateString();
+            const originalIdx = history.indexOf(item);
+            return `
+      <div class="history-item">
+        <div>
+          <span class="task-title">${item.title}</span><br>
+          <span class="task-date">${new Date(item.date).toLocaleTimeString(
+            "de-DE",
+            { hour: "2-digit", minute: "2-digit" }
+          )} Uhr</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span class="task-dur">${formatTime(item.duration)}</span>
+          ${
+            isToday
+              ? `<button class="btn-del" onclick="deleteEntry(${originalIdx})">&times;</button>`
+              : '<div style="width:25px;"></div>'
+          }
+        </div>
+      </div>`;
+          });
+        list.innerHTML = htmlRows.join("");
+      }
+
+      function runTimer() {
+        clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+          if (!activeTask || activeTask.isPaused) return;
+          const ms =
+            activeTask.accumulatedTime + (Date.now() - activeTask.startTime);
+          const h = Math.floor(ms / 3600000),
+            m = Math.floor((ms % 3600000) / 60000),
+            s = Math.floor((ms % 60000) / 1000);
+          document.getElementById("timerDisplay").innerText = `${String(
+            h
+          ).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(
+            s
+          ).padStart(2, "0")}`;
+        }, 1000);
+      }
+
+      // FIX FÜR MOBILE SPEICHERN:
+      // Wir nutzen nur "click". Moderne mobile Browser emulieren das "click"
+      // nach einem Tap bereits korrekt. Das doppelte Zuweisen von touchstart
+      // und click verursacht oft Konflikte.
+      document
+        .getElementById("saveManualBtn")
+        .addEventListener("click", function (e) {
+          saveManualTask();
+        });
 
       document
         .getElementById("addManualBtn")

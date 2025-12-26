@@ -268,10 +268,17 @@
 
     <footer>
       &copy; <span id="copyrightYear"></span> Oliver Ahlig · Lebenszeit Tracker
-      - 16.19
+      - <span id="appVersion"></span>
     </footer>
 
     <script>
+      // Zentrales Versions-Management
+      const VERSION = "16.22"; // Hier einfach die neue Zeit/Version eintragen
+
+      document.getElementById("copyrightYear").innerText =
+        new Date().getFullYear();
+      document.getElementById("appVersion").innerText = VERSION;
+
       document.getElementById("copyrightYear").innerText =
         new Date().getFullYear();
 
@@ -492,56 +499,57 @@
       function renderHistory() {
         const fVal = parseInt(document.getElementById("historyFilter").value);
         const now = new Date();
-        now.setHours(0, 0, 0, 0); // Zeit auf Mitternacht setzen für sauberen Tagesvergleich
 
-        const filtered = history
-          .filter((i) => {
-            const d = new Date(i.date);
-            const itemDate = new Date(d.getTime());
-            itemDate.setHours(0, 0, 0, 0);
-
-            // Berechnung der Differenz in vollen Tagen
-            const diffTime = now - itemDate;
-            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-            if (fVal === 0)
-              return d.toDateString() === new Date().toDateString();
-            return diffDays < fVal;
-          })
-          .reverse(); // Neueste zuerst
+        // 1. Filtern der Daten
+        const filtered = history.filter((item) => {
+          const d = new Date(item.date);
+          if (fVal === 0) return d.toDateString() === now.toDateString();
+          const diffDays = Math.ceil(Math.abs(now - d) / 86400000);
+          return diffDays <= fVal;
+        });
 
         const list = document.getElementById("historyList");
 
+        // 2. Platzhalter-Check (WICHTIG!)
         if (filtered.length === 0) {
           list.innerHTML =
-            '<div style="text-align:center; padding:20px; color:#ccc;">Keine Einträge für diesen Zeitraum</div>';
+            '<div style="text-align:center; padding:20px; color:#ccc;">Keine Einträge vorhanden</div>';
           return;
         }
 
-        list.innerHTML = filtered
-          .map((item, idx) => {
+        // 3. HTML generieren (Neueste zuerst durch slice().reverse())
+        const htmlRows = filtered
+          .slice()
+          .reverse()
+          .map((item) => {
             const isToday =
-              new Date(item.date).toDateString() === new Date().toDateString();
+              new Date(item.date).toDateString() === now.toDateString();
+
+            // Wir suchen den echten Index im originalen History-Array für die Löschfunktion
+            const originalIdx = history.indexOf(item);
+
             return `
-        <div class="history-item">
-          <div>
-            <span class="task-title">${item.title}</span><br>
-            <span class="task-date">${new Date(item.date).toLocaleTimeString(
-              "de-DE",
-              { hour: "2-digit", minute: "2-digit" }
-            )} Uhr</span>
-          </div>
-          <div style="display:flex; align-items:center; gap:10px;">
-            <span class="task-dur">${formatTime(item.duration)}</span>
-            ${
-              isToday
-                ? `<button class="btn-del" onclick="deleteEntry(${idx})">&times;</button>`
-                : '<div style="width:25px;"></div>'
-            }
-          </div>
-        </div>`;
-          })
-          .join("");
+      <div class="history-item">
+        <div>
+          <span class="task-title">${item.title}</span><br>
+          <span class="task-date">${new Date(item.date).toLocaleTimeString(
+            "de-DE",
+            { hour: "2-digit", minute: "2-digit" }
+          )} Uhr</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span class="task-dur">${formatTime(item.duration)}</span>
+          ${
+            isToday
+              ? `<button class="btn-del" onclick="deleteEntry(${originalIdx})">&times;</button>`
+              : '<div style="width:25px;"></div>'
+          }
+        </div>
+      </div>`;
+          });
+
+        // 4. Das Array zu einem String zusammenfügen und rendern
+        list.innerHTML = htmlRows.join("");
       }
 
       function runTimer() {

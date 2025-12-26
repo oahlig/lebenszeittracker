@@ -241,6 +241,7 @@
           <option value="0" selected>Heute</option>
           <option value="3">3 Tage</option>
           <option value="7">7 Tage</option>
+          <option value="30">30 Tage</option>
         </select>
       </div>
 
@@ -268,10 +269,11 @@
 
     <footer>
       &copy; <span id="copyrightYear"></span> Oliver Ahlig · Lebenszeit Tracker
-      - <span id="appVersion"></span>
+      - v26.12.16.44
     </footer>
 
     <script>
+      // Lade Daten sicher
       let history = JSON.parse(localStorage.getItem("wt_history")) || [];
       let activeTask = JSON.parse(localStorage.getItem("wt_active")) || null;
       let archive = JSON.parse(localStorage.getItem("wt_archive")) || {
@@ -294,6 +296,9 @@
 
       function getTimeKeys(dateStr) {
         const d = new Date(dateStr);
+        if (isNaN(d.getTime()))
+          return { day: "?", week: "?", month: "?", year: "?" };
+
         const day = d.toISOString().split("T")[0];
         const month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
           2,
@@ -344,7 +349,7 @@
           addToArchive(t, m, new Date().toISOString());
           save();
           toggleManualForm();
-          updateUI(); // Rendert auch History neu
+          updateUI();
           titleEl.blur();
           minsEl.blur();
         } else {
@@ -354,15 +359,15 @@
 
       function addToArchive(title, mins, dateIso) {
         const k = getTimeKeys(dateIso);
+        if (k.day === "?") return;
+
         archive.days[k.day] = (archive.days[k.day] || 0) + mins;
         archive.weeks[k.week] = (archive.weeks[k.week] || 0) + mins;
         archive.months[k.month] = (archive.months[k.month] || 0) + mins;
         archive.years[k.year] = (archive.years[k.year] || 0) + mins;
 
         history.push({ title, duration: mins, date: dateIso });
-        const limit = new Date();
-        limit.setDate(limit.getDate() - 30);
-        history = history.filter((i) => new Date(i.date) >= limit);
+        // KEIN automatisches Löschen mehr hier, damit History sichtbar bleibt
       }
 
       function updateUI() {
@@ -382,7 +387,7 @@
           document.getElementById("taskInput").value = activeTask.title;
         }
         renderStats();
-        renderHistory(); // WICHTIG: History Refresh
+        renderHistory();
       }
 
       function startTask() {
@@ -426,9 +431,11 @@
       function deleteEntry(idx) {
         const item = history[idx];
         const now = new Date();
+        const itemDate = new Date(item.date);
 
-        if (new Date(item.date).toDateString() !== now.toDateString())
+        if (itemDate.toDateString() !== now.toDateString()) {
           return alert("Nur heutige Einträge löschbar.");
+        }
 
         if (confirm(`"${item.title}" löschen?`)) {
           const k = getTimeKeys(item.date);
@@ -446,6 +453,7 @@
         const k = getTimeKeys(new Date());
         const ys = document.getElementById("yearSelect");
         const curY = new Date().getFullYear().toString();
+
         let yrs = Object.keys(archive.years || {});
         if (!yrs.includes(curY)) yrs.push(curY);
         yrs.sort((a, b) => b - a);
@@ -461,6 +469,7 @@
             )
             .join("");
         }
+
         document.getElementById("statDay").innerText = formatTime(
           archive.days[k.day]
         );
@@ -480,19 +489,24 @@
         const now = new Date();
         const list = document.getElementById("historyList");
 
+        // Sortiert und gefiltert (stabil für Mobilgeräte)
         const filteredIndices = history
           .map((item, index) => ({ item, index }))
           .filter((obj) => {
             const d = new Date(obj.item.date);
+            if (isNaN(d.getTime())) return false;
+
             if (fVal === 0) return d.toDateString() === now.toDateString();
-            const diffDays = Math.ceil(Math.abs(now - d) / 86400000);
+
+            const diffTime = Math.abs(now.getTime() - d.getTime());
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
             return diffDays <= fVal;
           })
           .reverse();
 
         if (filteredIndices.length === 0) {
           list.innerHTML =
-            '<div style="text-align:center; padding:20px; color:#ccc;">Keine Einträge vorhanden</div>';
+            '<div style="text-align:center; padding:20px; color:#ccc;">Keine Einträge für diesen Zeitraum</div>';
           return;
         }
 
@@ -557,24 +571,26 @@
       document
         .getElementById("historyFilter")
         .addEventListener("change", renderHistory);
+
+      // Nutze 'blur' statt 'change' für bessere Handy-Reaktion
       document
         .getElementById("taskInput")
-        .addEventListener("change", function () {
-          if (activeTask && this.value !== activeTask.title) {
-            stopTask();
-            startTask();
+        .addEventListener("blur", function () {
+          if (
+            activeTask &&
+            this.value !== activeTask.title &&
+            this.value.trim() !== ""
+          ) {
+            activeTask.title = this.value;
+            save();
           }
         });
 
       // Initialer Start
       if (activeTask && !activeTask.isPaused) runTimer();
-      updateUI(); // Rendert alles beim Start
-
-      const VERSION = "26.12.16.35"; // Version leicht erhöht
-
+      updateUI();
       document.getElementById("copyrightYear").innerText =
         new Date().getFullYear();
-      document.getElementById("appVersion").innerText = VERSION;
     </script>
   </body>
 </html>

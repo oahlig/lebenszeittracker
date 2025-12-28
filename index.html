@@ -277,7 +277,7 @@
     >
       <div>
         &copy; <span id="copyrightYear"></span> Oliver Ahlig · Lebenszeit
-        Tracker - v26.12.16.45
+        Tracker - <span id="version"></span>
       </div>
       <button
         id="resetAppBtn"
@@ -310,13 +310,19 @@
       let timerInterval;
 
       function formatTime(mins) {
-        if (!mins || mins <= 0) return "0 min";
-        if (mins < 90) return mins + " min";
-        if (mins < 1440)
-          return (mins / 60).toFixed(1).replace(".0", "") + " Std";
+        if (!mins || mins <= 0) return "0m";
+
         const d = Math.floor(mins / 1440);
         const h = Math.floor((mins % 1440) / 60);
-        return h === 0 ? `${d} Tg` : `${d} Tg ${h} Std`;
+        const m = Math.round(mins % 60);
+
+        let result = [];
+
+        if (d > 0) result.push(`${d}d`);
+        if (h > 0) result.push(`${h}h`);
+        if (m > 0 || result.length === 0) result.push(`${m}m`);
+
+        return result.join(" ");
       }
 
       function getTimeKeys(dateStr) {
@@ -633,6 +639,8 @@
       updateUI();
       document.getElementById("copyrightYear").innerText =
         new Date().getFullYear();
+      const appVersion = "28.12.12.11";
+      document.getElementById("version").innerText = appVersion;
     </script>
     <!-- Google tag (gtag.js) -->
     <script
